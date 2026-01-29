@@ -44,5 +44,18 @@ The second **auto** parameter activates auto-cropping.
 - Error handling is also implemented in exceptional cases where no valid crop values ​​could be determined.
 - Completed encoded files are saved to the "_Converted" folder; the original files are not deleted.
 - Files with inconsistent black borders are not encoded and are immediately moved to the "_Check" folder for further manual review.
+## Daily Use
+To ensure that all newly copied files in the directory are always converted automatically into your desired target format — covering both video and audio — use the wrapper consistently with a minimal, generic parameter set.
+This approach allows the wrapper to handle quality selection, cropping, resizing, and audio handling automatically, without requiring per-file adjustments.
+
+For example:
+
+    nvencc64_wrapper.cmd hevc ac3 auto auto
+
+or:
+
+    nvencc64_wrapper.cmd h264 eac3 auto auto
+
+By using these commands as your default workflow, any new files added to the directory will be processed uniformly and converted to the intended target formats with minimal manual intervention.
 ## Manual:
 For further questions, please consult the [manual](https://github.com/rainman74/NVEncC64_Wrapper/wiki).
