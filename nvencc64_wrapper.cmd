@@ -509,19 +509,30 @@ if ($ExitCode -eq 0) {
 
 	$RejectReason = $null
 
-	# vertical asymmetry
 	if ([math]::Abs($CropT - $CropB) -gt 2) {
 		$RejectReason = "vertical asymmetry (T=$CropT B=$CropB)"
 	}
 
-	# one-sided vertical crop
 	elseif ( ($CropT -eq 0 -and $CropB -gt 0) -or ($CropB -eq 0 -and $CropT -gt 0) ) {
 		$RejectReason = "one-sided vertical crop (T=$CropT B=$CropB)"
 	}
 
-	# horizontal asymmetry ONLY
-	elseif ( ($CropL + $CropR) -gt 8 -and [math]::Abs($CropL - $CropR) -gt 2 ) {
-		$RejectReason = "horizontal asymmetry (L=$CropL R=$CropR)"
+	elseif ($TotalV -eq 0 -and $TotalH -gt 0) {
+	
+		$MaxSide = [math]::Max($CropL, $CropR)
+	
+		if ($MaxSide -le 8 -and ($CropL + $CropR) -le 16) {
+	
+			if ($MaxSide % 2 -ne 0) { $MaxSide++ }
+	
+			Write-Status "MICRO-CROP: horizontal tolerance applied (L=$CropL R=$CropR -> $MaxSide px each)"
+	
+			"SET NVEnc_Crop=${MaxSide}:0:${MaxSide}:0" | Out-File -Encoding ASCII $SetFile
+			"SET NVEnc_Res=$($OrigWidth - ($MaxSide * 2))x$OrigHeight" | Out-File -Encoding ASCII $SetFile -Append
+			exit 0
+		}
+	
+		$RejectReason = "horizontal asymmetry outside tolerance (L=$CropL R=$CropR)"
 	}
 
 	if ($RejectReason) {
