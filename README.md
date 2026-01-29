@@ -44,3 +44,5 @@ The second **auto** parameter activates auto-cropping.
 - Error handling is also implemented in exceptional cases where no valid crop values ​​could be determined.
 - Completed encoded files are saved to the "_Converted" folder; the original files are not deleted.
 - Files with inconsistent black borders are not encoded and are immediately moved to the "_Check" folder for further manual review.
+## Manual:
+For further questions, please consult the [manual](https://github.com/rainman74/NVEncC64_Wrapper/wiki).
