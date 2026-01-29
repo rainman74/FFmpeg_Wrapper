@@ -35,9 +35,9 @@ $ffprobeCmd = "D:\Apps\ffprobe.exe"
 ### GNU sed
 Install GNU sed version 4.0.7 or higher in your path or simply comment out the line containing sed.
 ## Enable automatic cropping:
-You can activate auto-cropping for all files in the current path:
-C:\>nvencc64_wrapper.cmd hevc ac3 **auto** **auto**
-The first **auto** parameter enables automatic quality upgrade based on the year (for older films which generally have more pronounced film grain).
+You can activate auto-cropping for all files in the current path:<br>
+C:\>nvencc64_wrapper.cmd hevc ac3 **auto** **auto**<br>
+The first **auto** parameter enables automatic quality upgrade based on the year (for older films which generally have more pronounced film grain).<br>
 The second **auto** parameter activates auto-cropping.
 ## Hints:
 - To display debug output and see how auto-cropping works, use: set "DEBUG_AUTOCROP=1" otherwise "DEBUG_AUTOCROP=0"
