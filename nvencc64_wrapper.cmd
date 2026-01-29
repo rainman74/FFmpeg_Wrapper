@@ -5,7 +5,7 @@ call setesc
 if '%1'=='-h' goto USAGE
 if '%1'=='' goto USAGE
 
-set "DEBUG_AUTOCROP=1"
+set "DEBUG_AUTOCROP=0"
 if "%DEBUG_AUTOCROP%"=="1" (
 	set "DBG=echo [DEBUG]"
 ) else (
@@ -210,12 +210,12 @@ if "%4"=="1764"				(set CROP=--output-res 1764x1080 --crop 78,0,78,0)
 if "%4"=="1780"				(set CROP=--output-res 1780x1080 --crop 70,0,70,0)
 if "%4"=="1788"				(set CROP=--output-res 1788x1080 --crop 66,0,66,0)
 if "%4"=="1800"				(set CROP=--output-res 1800x1080 --crop 60,0,60,0)
-if "%4"=="c1"				(set CROP=--seek 00:00:23.983 --audio-metadata language=eng)
-if "%4"=="c2"				(set CROP=--crop 0,80,0,80)
-if "%4"=="c3"				(set CROP=--crop 0,70,0,70 --output-res 1920x960)
-if "%4"=="c4"				(set CROP=--crop 2,2,24,2 --output-res 1920x1080 --vpp-curves "green=0/0 0.5/0.40 1/0.88:red=0/0 0.5/0.40 1/0.88:blue=0/0 0.5/0.40 1/0.88" --vpp-tweak contrast=1.1,brightness=-0.03,gamma=1.30,hue=6,saturation=0.97 --vpp-unsharp radius=2,weight=0.5,threshold=2.0 --vpp-edgelevel strength=5.0,threshold=10.0,black=0,white=0 --vpp-resize spline36 --qvbr 23)
-if "%4"=="c5"				(set CROP=--crop 2,2,24,2 --output-res 1920x1080 --vpp-tweak contrast=1.1,brightness=0.0,gamma=1.2,hue=-4,saturation=1.0 --vpp-unsharp radius=2,weight=0.5,threshold=2.0)
-if "%4"=="c6"				(set CROP=--output-res 1920x1080 --vpp-curves "green=0/0 0.5/0.38 1/0.85:red=0/0 0.5/0.38 1/0.85" --vpp-tweak contrast=1.1,brightness=-0.01,gamma=1.1)
+if "%4"=="c1"				(set CROP=)
+if "%4"=="c2"				(set CROP=)
+if "%4"=="c3"				(set CROP=)
+if "%4"=="c4"				(set CROP=)
+if "%4"=="c5"				(set CROP=)
+if "%4"=="c6"				(set CROP=)
 exit /b
 
 :SETFILTER
@@ -242,10 +242,12 @@ if "%5"=="vsrdenoisehq"	 	(set FILTER=--vpp-resize algo=ngx-vsr,vsr-quality=4 --
 if "%5"=="vsrartifact"	 	(set FILTER=--vpp-resize algo=ngx-vsr,vsr-quality=4 --vpp-unsharp --vpp-nvvfx-artifact-reduction mode=0)
 if "%5"=="vsrartifacthq" 	(set FILTER=--vpp-resize algo=ngx-vsr,vsr-quality=4 --vpp-unsharp --vpp-nvvfx-artifact-reduction mode=1)
 if "%5"=="log"			 	(set FILTER=--log-packets input_packets.log)
-if "%5"=="f1"			 	(set FILTER=--crop 10,0,8,0 --output-res 720x540 --vpp-deband blurfirst)
+if "%5"=="f1"			 	(set FILTER=)
 if "%5"=="f2"			 	(set FILTER=)
 if "%5"=="f3"			 	(set FILTER=)
 if "%5"=="f4"			 	(set FILTER=)
+if "%5"=="f5"			 	(set FILTER=)
+if "%5"=="f6"			 	(set FILTER=)
 exit /b
 
 :SETMODE
@@ -327,9 +329,9 @@ echo.
 echo encoder = [def^|hevc^|he10^|h264^|av1]
 echo audio   = [copy(1/2/12)^|ac3(lq)^|aac(lq)^|eac3(lq)]
 echo quality = [def^|auto^|lq^|ulq^|hq^|uhq]
-echo crop    = [copy^|auto^|c(1-4)^|696^|768^|800^|804^|808^|812^|816^|872^|960^|1012^|1024^|1036^|1040^|720(f/p)^|1080(f/p)^|2160(f/p)]
+echo crop    = [copy^|auto^|c(1-6)^|696^|768^|800^|804^|808^|812^|816^|872^|960^|1012^|1024^|1036^|1040^|720(f/p)^|1080(f/p)^|2160(f/p)]
 echo           [1440^|1348^|1420^|1480^|1500^|1792^|1764^|1780^|1788^|1800]
-echo filter  = [copy^|f(1-4)^|edgelevel^|smooth(31/63)^|nlmeans^|gauss(5)^|sharp^|ss^|denoise(hq)^|artifact(hq)^|superres(hq)]
+echo filter  = [copy^|f(1-6)^|edgelevel^|smooth(31/63)^|nlmeans^|gauss(5)^|sharp^|ss^|denoise(hq)^|artifact(hq)^|superres(hq)]
 echo           [vsr^|vsrdenoise(hq)^|vsrartifact(hq)]
 echo mode    = [copy^|deint^|yadif(bob)^|double^|23fps^|25fps^|30fps^|60fps^|29fps^|59fps]
 echo           [brighter^|darker^|vintage^|linear^|tweak^|HDRtoSDR(R/M/H)^|dv/dolby-vision]
