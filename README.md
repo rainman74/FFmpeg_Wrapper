@@ -26,20 +26,19 @@ Example: nvencc64_wrapper   hevc      copy    def       copy   copy     copy   s
 ```
 
 ## Preparations:
-Only the _absolute paths_ need to be adjusted beforehand for the both ffmpeg applications:<br>
+### FFmpeg and FFprobe
+The _absolute paths_ need to be adjusted beforehand for the both ffmpeg applications:<br>
 ```
 $ffmpegCmd = "D:\Apps\ffmpeg.exe"
 $ffprobeCmd = "D:\Apps\ffprobe.exe"
 ```
-
+### GNU sed
+Install GNU sed version 4.0.7 or higher in your path or simply comment out the line containing sed.
 ## Enable automatic cropping:
 You can activate auto-cropping for all files in the current path:
-
 C:\>nvencc64_wrapper.cmd hevc ac3 **auto** **auto**
-
 The first **auto** parameter enables automatic quality upgrade based on the year (for older films which generally have more pronounced film grain).
 The second **auto** parameter activates auto-cropping.
-
 ## Hints:
 - To display debug output and see how auto-cropping works, use: set "DEBUG_AUTOCROP=1" otherwise "DEBUG_AUTOCROP=0"
 - Error handling is also implemented in exceptional cases where no valid crop values ​​could be determined.
