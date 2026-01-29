@@ -37,76 +37,105 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if not exist "_Converted\%%
 	set "RESIZE_PARAM="
 	set "CROP_L=0"
 	set "CROP_R=0"
+	set "TARGET_DIR="
 
-	%DBG%  ==========================================
-	%DBG%  File: %%I
-	%DBG%  CROP_MODE: "!CROP_MODE!"
-	%DBG%  ==========================================
+	set "SRC_CODEC="
+	for /f "usebackq delims=" %%C in ('mediainfo "--Inform=Video;%%Format%%" "%%I"') do set "SRC_CODEC=%%C"
 
-	if "%ENCODER%"=="h264" (
-		call :SETQUALITY-H264
-	) else (
-		call :SETQUALITY-HEVC
+	echo !SRC_CODEC! | findstr /i "HEVC" >nul
+	if not errorlevel 1 (
+		if /i "%ENCODER%"=="hevc" set "TARGET_DIR=_HEVC"
+		if /i "%ENCODER%"=="he10" set "TARGET_DIR=_HEVC"
+	)
+	
+	echo !SRC_CODEC! | findstr /i "AVC" >nul
+	if not errorlevel 1 (
+		if /i "%ENCODER%"=="h264" set "TARGET_DIR=_H264"
+	)
+	
+	echo !SRC_CODEC! | findstr /i "AV1" >nul
+	if not errorlevel 1 (
+		if /i "%ENCODER%"=="av1" set "TARGET_DIR=_AV1"
 	)
 
-	echo %ESC%[101;93m %%I %ESC%[0m
-
-	if "!REQ_Q!"=="auto" (
-		echo "!FILENAME!" | findstr /c:"(19" >nul || echo "!FILENAME!" | findstr /c:"(20" >nul || (
-			echo %ESC%[91mWARNING: No year found in filename. Falling back to default quality ^(!QUALITY!^).%ESC%[0m
-		)
+	if defined TARGET_DIR (
+		if not exist "!TARGET_DIR!" md "!TARGET_DIR!"
+		echo %ESC%[91mWARNING: Source already encoded as !SRC_CODEC!. Moving file to !TARGET_DIR!.%ESC%[0m
+		move "%%I" "!TARGET_DIR!\" >nul
+		set "SKIP_FILE=1"
 	)
-
-	if /i "!CROP_MODE!"=="AUTO" (
-		set "PROBE_OK=0"
-		%DBG% RUN_PROBE is being executed
-		call :RUN_PROBE "%%I"
-
-		if "!PROBE_OK!"=="0" (
-			%DBG% RUN_PROBE failed → moving file to _Check
-			if not exist "_Check" md "_Check"
-			move "%%I" "_Check\" >nul
-			set "SKIP_FILE=1"
-		) else (
-			if "!AUTO_CROP!"=="0:0:0:0" (
-				%DBG% AUTO-CROP: no crop detected → passthrough
-				set "CROP="
-				set "RESIZE_PARAM="
-			) else (
-				set "AUTO_CROP_FIX=!AUTO_CROP::=,!"
-				set "CROP=--crop !AUTO_CROP_FIX! --output-res !AUTO_RES!"
-
-				for /f "tokens=1,3 delims=:" %%A in ("!AUTO_CROP!") do (
-					set "CROP_L=%%A"
-					set "CROP_R=%%C"
-				)
-
-				if not "!CROP_L!"=="0" set "RESIZE_PARAM=--vpp-resize spline36"
-				if not "!CROP_R!"=="0" set "RESIZE_PARAM=--vpp-resize spline36"
-
-				echo !FILTER! | findstr /i /c:"--vpp-resize" >nul && set "RESIZE_PARAM="
-			)
-
-			%DBG% AUTO-CROP final result: !CROP!
-		)
-	)
-
-	setlocal DisableDelayedExpansion
-	echo "file:\\\%%~dI%%~pI"| sed -r "s/[\"]/\a/g; s/[\\]/\//g; s/[ ]/\%%20/g; s/[#]/\%%23/g; s/[']/\%%27/g; s/!/%%21/g"
-	setlocal EnableDelayedExpansion
-
-	mediainfo --Inform="General;%%Duration/String2%% - %%FileSize/String4%%" "%%I"
-
-	%DBG%  NVEnc parameters:
-	%DBG% 	 CROP	= "!CROP!"
-	%DBG% 	 FILTER = "!FILTER!"
-	%DBG% 	 MODE	= "!MODE!"
-	%DBG% 	 AUDIO	= "!AUDIO!"
 
 	if not defined SKIP_FILE (
-		nvencc64.exe --thread-priority all=lowest --input-thread 1 --output-buf 16 --%DECODER% -i "%%I" -c %ENCODER% --profile %PROFILE% --tier high --level auto --qvbr !QUALITY! !PRESET! --aq-temporal --aq-strength 0 !TUNING! --bref-mode middle !RESIZE_PARAM! !CROP! !FILTER! !MODE! !AUDIO! --sub-copy --chapter-copy -o "_Converted\%%~nI.mkv"
-		for /L %%X in (5,-1,1) do (echo Waiting for %%X seconds... & sleep 1s)
-		echo.
+		%DBG%  ==========================================
+		%DBG%  File: %%I
+		%DBG%  CROP_MODE: "!CROP_MODE!"
+		%DBG%  ==========================================
+	
+		if "%ENCODER%"=="h264" (
+			call :SETQUALITY-H264
+		) else (
+			call :SETQUALITY-HEVC
+		)
+	
+		echo %ESC%[101;93m %%I %ESC%[0m
+	
+		if "!REQ_Q!"=="auto" (
+			echo "!FILENAME!" | findstr /c:"(19" >nul || echo "!FILENAME!" | findstr /c:"(20" >nul || (
+				echo %ESC%[91mWARNING: No year found in filename. Falling back to default quality ^(!QUALITY!^).%ESC%[0m
+			)
+		)
+	
+		if /i "!CROP_MODE!"=="AUTO" (
+			set "PROBE_OK=0"
+			%DBG% RUN_PROBE is being executed
+			call :RUN_PROBE "%%I"
+	
+			if "!PROBE_OK!"=="0" (
+				%DBG% RUN_PROBE failed, moving file to _Check
+				if not exist "_Check" md "_Check"
+				move "%%I" "_Check\" >nul
+				set "SKIP_FILE=1"
+			) else (
+				if "!AUTO_CROP!"=="0:0:0:0" (
+					%DBG% AUTO-CROP: no crop detected, passthrough
+					set "CROP="
+					set "RESIZE_PARAM="
+				) else (
+					set "AUTO_CROP_FIX=!AUTO_CROP::=,!"
+					set "CROP=--crop !AUTO_CROP_FIX! --output-res !AUTO_RES!"
+	
+					for /f "tokens=1,3 delims=:" %%A in ("!AUTO_CROP!") do (
+						set "CROP_L=%%A"
+						set "CROP_R=%%C"
+					)
+	
+					if not "!CROP_L!"=="0" set "RESIZE_PARAM=--vpp-resize spline36"
+					if not "!CROP_R!"=="0" set "RESIZE_PARAM=--vpp-resize spline36"
+	
+					echo !FILTER! | findstr /i /c:"--vpp-resize" >nul && set "RESIZE_PARAM="
+				)
+	
+				%DBG% AUTO-CROP final result: !CROP!
+			)
+		)
+	
+		setlocal DisableDelayedExpansion
+		echo "file:\\\%%~dI%%~pI"| sed -r "s/[\"]/\a/g; s/[\\]/\//g; s/[ ]/\%%20/g; s/[#]/\%%23/g; s/[']/\%%27/g; s/!/%%21/g"
+		setlocal EnableDelayedExpansion
+	
+		mediainfo --Inform="General;%%Duration/String2%% - %%FileSize/String4%%" "%%I"
+	
+		%DBG%  NVEnc parameters:
+		%DBG% 	 CROP	= "!CROP!"
+		%DBG% 	 FILTER = "!FILTER!"
+		%DBG% 	 MODE	= "!MODE!"
+		%DBG% 	 AUDIO	= "!AUDIO!"
+	
+		if not defined SKIP_FILE (
+			nvencc64.exe --thread-priority all=lowest --input-thread 1 --output-buf 16 --%DECODER% -i "%%I" -c %ENCODER% --profile %PROFILE% --tier high --level auto --qvbr !QUALITY! !PRESET! --aq-temporal --aq-strength 0 !TUNING! --bref-mode middle !RESIZE_PARAM! !CROP! !FILTER! !MODE! !AUDIO! --sub-copy --chapter-copy -o "_Converted\%%~nI.mkv"
+			for /L %%X in (5,-1,1) do (echo Waiting for %%X seconds... & sleep 1s)
+			echo.
+		)
 	)
 )
 exit /b
@@ -273,11 +302,9 @@ if "%6"=="HDRtoSDRR"		(set MODE=--vpp-colorspace matrix=bt2020nc:bt709,colorprim
 if "%6"=="HDRtoSDRM"		(set MODE=--vpp-colorspace matrix=bt2020nc:bt709,colorprim=bt2020:bt709,transfer=smpte2084:bt709,range=auto:auto,hdr2sdr=mobius)
 if "%6"=="HDRtoSDRH"		(set MODE=--vpp-colorspace matrix=bt2020nc:bt709,colorprim=bt2020:bt709,transfer=smpte2084:bt709,range=auto:auto,hdr2sdr=hable)
 set "DV="
-if "%6"=="dv" (
-	set DV=1
-	) else (
-	if "%6"=="dolby-vision" set DV=1
-)
+if /i "%6"=="dv" set "DV=1"
+if /i "%6"=="dolby-vision" set "DV=1"
+
 if defined DV (
 	set MODE=--dolby-vision-profile copy --dolby-vision-rpu copy --master-display copy --max-cll copy
 )
