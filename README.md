@@ -1,6 +1,6 @@
 # NVEncC64_Wrapper
 
-Since @rigaya unfortunately won't be implementing auto-cropping, I've extended my wrapper and included it.
+Since [rigaya's](https://github.com/rigaya) excellent [NVEncC64](https://github.com/rigaya/NVEnc) encoder unfortunately does not have an automatic cropping function, and this is only rudimentary in FFmpeg, I have extended my wrapper and added this function.
 
 ## Simply calling the wrapper without parameters shows the usage:
 ```
@@ -28,7 +28,7 @@ Example: nvencc64_wrapper   hevc      copy    def       copy   copy     copy   s
 ## Preparations:
 Only the _absolute paths_ need to be adjusted beforehand for the both ffmpeg applications:<br>
 ```
-$ffmpegCmd = "D:\Apps\ffmpeg.exe"<br>
+$ffmpegCmd = "D:\Apps\ffmpeg.exe"
 $ffprobeCmd = "D:\Apps\ffprobe.exe"
 ```
 
