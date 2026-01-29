@@ -75,22 +75,22 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if not exist "_Converted\%%
 			) else (
 				set "AUTO_CROP_FIX=!AUTO_CROP::=,!"
 				set "CROP=--crop !AUTO_CROP_FIX! --output-res !AUTO_RES!"
-		
+
 				for /f "tokens=1,3 delims=:" %%A in ("!AUTO_CROP!") do (
 					set "CROP_L=%%A"
 					set "CROP_R=%%C"
 				)
-		
+
 				if not "!CROP_L!"=="0" set "RESIZE_PARAM=--vpp-resize spline36"
 				if not "!CROP_R!"=="0" set "RESIZE_PARAM=--vpp-resize spline36"
-		
+
 				echo !FILTER! | findstr /i /c:"--vpp-resize" >nul && set "RESIZE_PARAM="
 			)
-		
+
 			%DBG% AUTO-CROP final result: !CROP!
 		)
 	)
-	
+
 	setlocal DisableDelayedExpansion
 	echo "file:\\\%%~dI%%~pI"| sed -r "s/[\"]/\a/g; s/[\\]/\//g; s/[ ]/\%%20/g; s/[#]/\%%23/g; s/[']/\%%27/g; s/!/%%21/g"
 	setlocal EnableDelayedExpansion
