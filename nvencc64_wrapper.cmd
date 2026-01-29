@@ -19,7 +19,14 @@ call :SETENCODER %1 %2 %3 %4 %5 %6 %7
 call :SETAUDIO	 %1 %2 %3 %4 %5 %6 %7
 call :SETCROP	 %1 %2 %3 %4 %5 %6 %7
 call :SETFILTER	 %1 %2 %3 %4 %5 %6 %7
+set "FILTER_HAS_RESIZE=0"
+if defined FILTER (
+	echo(!FILTER! | findstr /i "--vpp-resize" >nul && set "FILTER_HAS_RESIZE=1"
+)
 call :SETMODE	 %1 %2 %3 %4 %5 %6 %7
+if defined MODE (
+	echo(!MODE! | findstr /i "--vpp-resize" >nul && set "FILTER_HAS_RESIZE=1"
+)
 call :SETDECODER %1 %2 %3 %4 %5 %6 %7
 
 set "REQ_Q=%3"
@@ -38,6 +45,7 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if not exist "_Converted\%%
 	set "CROP_L=0"
 	set "CROP_R=0"
 	set "TARGET_DIR="
+	set "RESIZE_REQUIRED=0"
 
 	set "SRC_CODEC="
 	for /f "usebackq delims=" %%C in ('mediainfo "--Inform=Video;%%Format%%" "%%I"') do set "SRC_CODEC=%%C"
@@ -98,6 +106,7 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if not exist "_Converted\%%
 			) else (
 				if "!AUTO_CROP!"=="0:0:0:0" (
 					%DBG% AUTO-CROP: no crop detected, passthrough
+					set "RESIZE_REQUIRED=0"
 					set "CROP="
 					set "RESIZE_PARAM="
 				) else (
@@ -107,18 +116,21 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if not exist "_Converted\%%
 					for /f "tokens=1,3 delims=:" %%A in ("!AUTO_CROP!") do (
 						set "CROP_L=%%A"
 						set "CROP_R=%%C"
-					)
-	
-					if not "!CROP_L!"=="0" set "RESIZE_PARAM=--vpp-resize spline36"
-					if not "!CROP_R!"=="0" set "RESIZE_PARAM=--vpp-resize spline36"
-	
-					echo !FILTER! | findstr /i /c:"--vpp-resize" >nul && set "RESIZE_PARAM="
+					)	
 				)
 	
 				%DBG% AUTO-CROP final result: !CROP!
 			)
 		)
-	
+
+		if not "!CROP_MODE!"=="AUTO" if defined CROP (
+			echo !CROP! | findstr /i "--output-res" >nul && (
+				if not "!CROP!"=="--crop 0,0,0,0" (
+					set "RESIZE_REQUIRED=1"
+				)
+			)
+		)
+
 		setlocal DisableDelayedExpansion
 		echo "file:\\\%%~dI%%~pI"| sed -r "s/[\"]/\a/g; s/[\\]/\//g; s/[ ]/\%%20/g; s/[#]/\%%23/g; s/[']/\%%27/g; s/!/%%21/g"
 		setlocal EnableDelayedExpansion
@@ -132,6 +144,14 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if not exist "_Converted\%%
 		%DBG% 	 AUDIO	= "!AUDIO!"
 	
 		if not defined SKIP_FILE (
+			set "RESIZE_PARAM="
+
+			if "!RESIZE_REQUIRED!"=="1" if "!FILTER_HAS_RESIZE!"=="0" (
+				set "RESIZE_PARAM=--vpp-resize spline36"
+			)
+			%DBG% RESIZE_REQUIRED    = "!RESIZE_REQUIRED!"
+			%DBG% FILTER_HAS_RESIZE = "!FILTER_HAS_RESIZE!"
+			%DBG% RESIZE_PARAM      = "!RESIZE_PARAM!"
 			nvencc64.exe --thread-priority all=lowest --input-thread 1 --output-buf 16 --%DECODER% -i "%%I" -c %ENCODER% --profile %PROFILE% --tier high --level auto --qvbr !QUALITY! !PRESET! --aq-temporal --aq-strength 0 !TUNING! --bref-mode middle !RESIZE_PARAM! !CROP! !FILTER! !MODE! !AUDIO! --sub-copy --chapter-copy -o "_Converted\%%~nI.mkv"
 			for /L %%X in (5,-1,1) do (echo Waiting for %%X seconds... & sleep 1s)
 			echo.
