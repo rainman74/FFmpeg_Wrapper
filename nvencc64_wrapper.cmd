@@ -74,10 +74,10 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if not exist "_Converted\%%
 	)
 
 	if not defined SKIP_FILE (
-		%DBG%  ==========================================
-		%DBG%  File: %%I
-		%DBG%  CROP_MODE: "!CROP_MODE!"
-		%DBG%  ==========================================
+		%DBG% ==========================================
+		%DBG% File: %%I
+		%DBG% CROP_MODE: "!CROP_MODE!"
+		%DBG% ==========================================
 	
 		if "%ENCODER%"=="h264" (
 			call :SETQUALITY-H264
@@ -137,7 +137,7 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if not exist "_Converted\%%
 	
 		mediainfo --Inform="General;%%Duration/String2%% - %%FileSize/String4%%" "%%I"
 	
-		%DBG%  NVEnc parameters:
+		%DBG% NVEnc parameters:
 		%DBG% 	 CROP	= "!CROP!"
 		%DBG% 	 FILTER = "!FILTER!"
 		%DBG% 	 MODE	= "!MODE!"
@@ -149,7 +149,7 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if not exist "_Converted\%%
 			if "!RESIZE_REQUIRED!"=="1" if "!FILTER_HAS_RESIZE!"=="0" (
 				set "RESIZE_PARAM=--vpp-resize spline36"
 			)
-			%DBG% RESIZE_REQUIRED    = "!RESIZE_REQUIRED!"
+			%DBG% RESIZE_REQUIRED   = "!RESIZE_REQUIRED!"
 			%DBG% FILTER_HAS_RESIZE = "!FILTER_HAS_RESIZE!"
 			%DBG% RESIZE_PARAM      = "!RESIZE_PARAM!"
 			nvencc64.exe --thread-priority all=lowest --input-thread 1 --output-buf 16 --%DECODER% -i "%%I" -c %ENCODER% --profile %PROFILE% --tier high --level auto --qvbr !QUALITY! !PRESET! --aq-temporal --aq-strength 0 !TUNING! --bref-mode middle !RESIZE_PARAM! !CROP! !FILTER! !MODE! !AUDIO! --sub-copy --chapter-copy -o "_Converted\%%~nI.mkv"
@@ -416,9 +416,9 @@ set "RC=%ERRORLEVEL%"
 
 if exist "%PS_SET_FILE%" call "%PS_SET_FILE%"
 
-%DBG%  RUN_PROBE: RC=%RC%
-%DBG%  RUN_PROBE: NVEnc_Crop=%NVEnc_Crop%
-%DBG%  RUN_PROBE: NVEnc_Res=%NVEnc_Res%
+%DBG% RUN_PROBE: RC=%RC%
+%DBG% RUN_PROBE: NVEnc_Crop=%NVEnc_Crop%
+%DBG% RUN_PROBE: NVEnc_Res=%NVEnc_Res%
 
 if "%RC%"=="0" (
 	endlocal & set "AUTO_CROP=%NVEnc_Crop%" & set "AUTO_RES=%NVEnc_Res%" & set "PROBE_OK=1"
@@ -537,7 +537,7 @@ if ($ExitCode -eq 0) {
 		$RejectReason = "one-sided vertical crop (T=$CropT B=$CropB)"
 	}
 
-	elseif ($TotalV -eq 0 -and $TotalH -gt 0) {
+	elseif ($TotalV -eq 0 -and $TotalH -gt 0 -and [math]::Abs($CropL - $CropR) -gt 2) {
 	
 		$MaxSide = [math]::Max($CropL, $CropR)
 	
