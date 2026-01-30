@@ -531,6 +531,19 @@ if ($ExitCode -eq 0) {
 		exit 0
 	}
 
+	if ($TotalV -le 2 -and $TotalH -gt 8) {
+	
+		$BestW = $StandardWidths |
+			Sort-Object { [math]::Abs($_ - ($OrigWidth - $TotalH)) } |
+			Select-Object -First 1
+	
+		$Side = [int](($OrigWidth - $BestW) / 2)
+	
+		"SET NVEnc_Crop=${Side}:0:${Side}:0" | Out-File -Encoding ASCII $SetFile
+		"SET NVEnc_Res=${BestW}x${OrigHeight}" | Out-File -Encoding ASCII $SetFile -Append
+		exit 0
+	}
+
 	$RejectReason = $null
 
 	if ([math]::Abs($CropT - $CropB) -gt 2) {
@@ -541,38 +554,13 @@ if ($ExitCode -eq 0) {
 		$RejectReason = "one-sided vertical crop (T=$CropT B=$CropB)"
 	}
 
-	elseif ($TotalV -eq 0 -and $TotalH -gt 0 -and [math]::Abs($CropL - $CropR) -gt 2) {
-	
-		$MaxSide = [math]::Max($CropL, $CropR)
-	
-		if ($MaxSide -le 8 -and ($CropL + $CropR) -le 16) {
-	
-			if ($MaxSide % 2 -ne 0) { $MaxSide++ }
-	
-			Write-Status "MICRO-CROP: horizontal tolerance applied (L=$CropL R=$CropR -> $MaxSide px each)"
-	
-			"SET NVEnc_Crop=${MaxSide}:0:${MaxSide}:0" | Out-File -Encoding ASCII $SetFile
-			"SET NVEnc_Res=$($OrigWidth - ($MaxSide * 2))x$OrigHeight" | Out-File -Encoding ASCII $SetFile -Append
-			exit 0
-		}
-	
-		$RejectReason = "horizontal asymmetry outside tolerance (L=$CropL R=$CropR)"
+	elseif ($TotalV -eq 0 -and [math]::Abs($CropL - $CropR) -gt 2) {
+		$RejectReason = "horizontal asymmetry (no matching standard width)"
 	}
 
 	if ($RejectReason) {
 		Write-Status "REJECTED: $RejectReason"
 		exit 8
-	}
-
-	if ($TotalH -gt 8 -and [math]::Abs($CropL - $CropR) -le 2 -and $TotalV -le 2) {
-
-		$BestW = $StandardWidths | Sort-Object { [math]::Abs($_ - ($OrigWidth - $TotalH)) } | Select-Object -First 1
-
-		$Side = [int](($OrigWidth - $BestW) / 2)
-
-		"SET NVEnc_Crop=${Side}:0:${Side}:0" | Out-File -Encoding ASCII $SetFile
-		"SET NVEnc_Res=${BestW}x${OrigHeight}" | Out-File -Encoding ASCII $SetFile -Append
-		exit 0
 	}
 
 	$Best = $StandardResolutions.GetEnumerator() | Sort-Object { [math]::Abs($_.Key-$TotalV) } | Select-Object -First 1
