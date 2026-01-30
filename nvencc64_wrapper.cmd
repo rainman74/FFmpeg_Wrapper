@@ -14,7 +14,6 @@ if "%DEBUG_AUTOCROP%"=="1" (
 
 call :VALIDATE-PARAMS %*
 if "!PARAM_ERR!"=="1" goto :END
-
 call :SETENCODER %1 %2 %3 %4 %5 %6 %7
 call :SETAUDIO	 %1 %2 %3 %4 %5 %6 %7
 call :SETCROP	 %1 %2 %3 %4 %5 %6 %7
@@ -37,7 +36,6 @@ goto :END
 
 :MAIN
 if not exist _Converted md _Converted
-
 for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if not exist "_Converted\%%~nI.mkv" (
 	set "FILENAME=%%~nI"
 	set "SKIP_FILE="
@@ -46,26 +44,22 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if not exist "_Converted\%%
 	set "CROP_R=0"
 	set "TARGET_DIR="
 	set "RESIZE_REQUIRED=0"
-
 	set "SRC_CODEC="
-	for /f "usebackq delims=" %%C in ('mediainfo "--Inform=Video;%%Format%%" "%%I"') do set "SRC_CODEC=%%C"
 
+	for /f "usebackq delims=" %%C in ('mediainfo "--Inform=Video;%%Format%%" "%%I"') do set "SRC_CODEC=%%C"
 	echo !SRC_CODEC! | findstr /i "HEVC" >nul
 	if not errorlevel 1 (
-		if /i "%ENCODER%"=="hevc" set "TARGET_DIR=_HEVC"
-		if /i "%ENCODER%"=="he10" set "TARGET_DIR=_HEVC"
+		if /i "%ENCODER%"=="hevc" set "TARGET_DIR=_Converted"
+		if /i "%ENCODER%"=="he10" set "TARGET_DIR=_Converted"
 	)
-	
 	echo !SRC_CODEC! | findstr /i "AVC" >nul
 	if not errorlevel 1 (
-		if /i "%ENCODER%"=="h264" set "TARGET_DIR=_H264"
+		if /i "%ENCODER%"=="h264" set "TARGET_DIR=_Converted"
 	)
-	
 	echo !SRC_CODEC! | findstr /i "AV1" >nul
 	if not errorlevel 1 (
-		if /i "%ENCODER%"=="av1" set "TARGET_DIR=_AV1"
+		if /i "%ENCODER%"=="av1" set "TARGET_DIR=_Converted"
 	)
-
 	if defined TARGET_DIR (
 		if not exist "!TARGET_DIR!" md "!TARGET_DIR!"
 		echo %ESC%[91mWARNING: Source already encoded as !SRC_CODEC!. Moving file to !TARGET_DIR!.%ESC%[0m
@@ -78,26 +72,23 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if not exist "_Converted\%%
 		%DBG% File: %%I
 		%DBG% CROP_MODE: "!CROP_MODE!"
 		%DBG% ==========================================
-	
+
 		if "%ENCODER%"=="h264" (
 			call :SETQUALITY-H264
 		) else (
 			call :SETQUALITY-HEVC
 		)
-	
 		echo %ESC%[101;93m %%I %ESC%[0m
-	
 		if "!REQ_Q!"=="auto" (
 			echo "!FILENAME!" | findstr /c:"(19" >nul || echo "!FILENAME!" | findstr /c:"(20" >nul || (
 				echo %ESC%[91mWARNING: No year found in filename. Falling back to default quality ^(!QUALITY!^).%ESC%[0m
 			)
 		)
-	
+		
 		if /i "!CROP_MODE!"=="AUTO" (
 			set "PROBE_OK=0"
 			%DBG% RUN_PROBE is being executed
 			call :RUN_PROBE "%%I"
-	
 			if "!PROBE_OK!"=="0" (
 				%DBG% RUN_PROBE failed, moving file to _Check
 				if not exist "_Check" md "_Check"
@@ -112,13 +103,11 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if not exist "_Converted\%%
 				) else (
 					set "AUTO_CROP_FIX=!AUTO_CROP::=,!"
 					set "CROP=--crop !AUTO_CROP_FIX! --output-res !AUTO_RES!"
-	
 					for /f "tokens=1,3 delims=:" %%A in ("!AUTO_CROP!") do (
 						set "CROP_L=%%A"
 						set "CROP_R=%%C"
 					)	
 				)
-	
 				%DBG% AUTO-CROP final result: !CROP!
 			)
 		)
@@ -134,25 +123,27 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if not exist "_Converted\%%
 		setlocal DisableDelayedExpansion
 		echo "file:\\\%%~dI%%~pI"| sed -r "s/[\"]/\a/g; s/[\\]/\//g; s/[ ]/\%%20/g; s/[#]/\%%23/g; s/[']/\%%27/g; s/!/%%21/g"
 		setlocal EnableDelayedExpansion
-	
+
 		mediainfo --Inform="General;%%Duration/String2%% - %%FileSize/String4%%" "%%I"
-	
+
 		%DBG% NVEnc parameters:
-		%DBG% 	 CROP	= "!CROP!"
-		%DBG% 	 FILTER = "!FILTER!"
-		%DBG% 	 MODE	= "!MODE!"
-		%DBG% 	 AUDIO	= "!AUDIO!"
-	
+		%DBG%   CROP   = "!CROP!"
+		%DBG%   FILTER = "!FILTER!"
+		%DBG%   MODE   = "!MODE!"
+		%DBG%   AUDIO  = "!AUDIO!"
+
 		if not defined SKIP_FILE (
 			set "RESIZE_PARAM="
-
 			if "!RESIZE_REQUIRED!"=="1" if "!FILTER_HAS_RESIZE!"=="0" (
 				set "RESIZE_PARAM=--vpp-resize spline36"
 			)
+
 			%DBG% RESIZE_REQUIRED   = "!RESIZE_REQUIRED!"
 			%DBG% FILTER_HAS_RESIZE = "!FILTER_HAS_RESIZE!"
 			%DBG% RESIZE_PARAM      = "!RESIZE_PARAM!"
+
 			nvencc64.exe --thread-priority all=lowest --input-thread 1 --output-buf 16 --%DECODER% -i "%%I" -c %ENCODER% --profile %PROFILE% --tier high --level auto --qvbr !QUALITY! !PRESET! --aq-temporal --aq-strength 0 !TUNING! --bref-mode middle !RESIZE_PARAM! !CROP! !FILTER! !MODE! !AUDIO! --sub-copy --chapter-copy -o "_Converted\%%~nI.mkv"
+
 			for /L %%X in (5,-1,1) do (echo Waiting for %%X seconds... & sleep 1s)
 			echo.
 		)
@@ -185,8 +176,7 @@ if "!REQ_Q!"=="auto" (
 	echo "!FILENAME!" | findstr /c:"(20" >nul && set "ACTUAL_Q=def"
 	if "!ACTUAL_Q!"=="none" set "ACTUAL_Q=def"
 )
-set "PRESET=--preset quality"
-set "TUNING=--tune hq"
+set "PRESET=--preset quality" & set "TUNING=--tune hq"
 if "!ACTUAL_Q!"=="uhq" 		(set "QUALITY=20" & set "TUNING=--tune uhq")
 if "!ACTUAL_Q!"=="hq"  		(set "QUALITY=22")
 if "!ACTUAL_Q!"=="def" 		(set "QUALITY=24")
@@ -195,147 +185,138 @@ if "!ACTUAL_Q!"=="ulq" 		(set "QUALITY=28" & set "TUNING=--tune undef" & set "PR
 exit /b
 
 :SETENCODER
-set ENCODER=hevc& set PROFILE=main
-if "%1"=="def"				(set ENCODER=hevc& set PROFILE=main)
-if "%1"=="hevc" 			(set ENCODER=hevc& set PROFILE=main)
-if "%1"=="he10" 			(set ENCODER=hevc& set PROFILE=main10 --output-depth 10)
-if "%1"=="h264" 			(set ENCODER=h264& set PROFILE=high)
-if "%1"=="av1"				(set ENCODER=av1& set PROFILE=high)
+set "ENCODER=hevc" & set "PROFILE=main"
+if "%1"=="def"				(set "ENCODER=hevc" & set "PROFILE=main")
+if "%1"=="hevc" 			(set "ENCODER=hevc" & set "PROFILE=main")
+if "%1"=="he10" 			(set "ENCODER=hevc" & set "PROFILE=main10 --output-depth 10")
+if "%1"=="h264" 			(set "ENCODER=h264" & set "PROFILE=high")
+if "%1"=="av1"				(set "ENCODER=av1"  & set "PROFILE=high")
 exit /b
 
 :SETAUDIO
-set AUDIO=--audio-codec ac3 --audio-bitrate stereo:192,5.1:384 --audio-encode-other-codec-only
-if "%2"=="copy"	  			(set AUDIO=--audio-copy)
-if "%2"=="copy1"  			(set AUDIO=--audio-copy 1)
-if "%2"=="copy2"  			(set AUDIO=--audio-copy 2)
-if "%2"=="copy12" 			(set AUDIO=--audio-copy 1,2)
-if "%2"=="copy23" 			(set AUDIO=--audio-copy 2,3)
-if "%2"=="ac3"	  			(set AUDIO=--audio-codec ac3 --audio-bitrate stereo:192,5.1:384 --audio-encode-other-codec-only)
-if "%2"=="aac"	  			(set AUDIO=--audio-codec aac --audio-bitrate stereo:128,5.1:256 --audio-encode-other-codec-only)
-if "%2"=="eac3"	  			(set AUDIO=--audio-codec eac3 --audio-bitrate stereo:320,5.1:640 --audio-encode-other-codec-only)
+set "AUDIO=--audio-codec ac3 --audio-bitrate stereo:192,5.1:384 --audio-encode-other-codec-only"
+if "%2"=="copy"	  			(set "AUDIO=--audio-copy")
+if "%2"=="copy1"  			(set "AUDIO=--audio-copy 1")
+if "%2"=="copy2"  			(set "AUDIO=--audio-copy 2")
+if "%2"=="copy12" 			(set "AUDIO=--audio-copy 1,2")
+if "%2"=="copy23" 			(set "AUDIO=--audio-copy 2,3")
+if "%2"=="ac3"	  			(set "AUDIO=--audio-codec ac3 --audio-bitrate stereo:192,5.1:384 --audio-encode-other-codec-only")
+if "%2"=="aac"	  			(set "AUDIO=--audio-codec aac --audio-bitrate stereo:128,5.1:256 --audio-encode-other-codec-only")
+if "%2"=="eac3"	  			(set "AUDIO=--audio-codec eac3 --audio-bitrate stereo:320,5.1:640 --audio-encode-other-codec-only")
 exit /b
 
 :SETCROP
-set CROP=
-set CROP_MODE=
-
+set "CROP=" & set "CROP_MODE="
 if "%4"=="auto" (
-	%DBG% SETCROP: crop=auto detected
 	set "CROP_MODE=AUTO"
 	exit /b
 )
-
-if "%4"=="copy"				(set CROP=)
-if "%4"=="696"				(set CROP=--crop 0,192,0,192)
-if "%4"=="768"				(set CROP=--crop 0,156,0,156)
-if "%4"=="800"				(set CROP=--crop 0,140,0,140)
-if "%4"=="804"				(set CROP=--crop 0,138,0,138)
-if "%4"=="808"				(set CROP=--crop 0,136,0,136)
-if "%4"=="812"				(set CROP=--crop 0,134,0,134)
-if "%4"=="816"				(set CROP=--crop 0,132,0,132)
-if "%4"=="872"				(set CROP=--crop 0,104,0,104)
-if "%4"=="960"				(set CROP=--crop 0,60,0,60)
-if "%4"=="1012"				(set CROP=--crop 0,34,0,34)
-if "%4"=="1024"				(set CROP=--crop 0,28,0,28)
-if "%4"=="1036"				(set CROP=--crop 0,22,0,22)
-if "%4"=="1036p"			(set CROP=--output-res 1920x1036 --crop 0,0,0,0)
-if "%4"=="1040"				(set CROP=--crop 0,20,0,20)
-if "%4"=="720"				(set CROP=--output-res 1280x-2 --crop 0,0,0,0)
-if "%4"=="720p"				(set CROP=--output-res -2x720 --crop 0,0,0,0)
-if "%4"=="720f"				(set CROP=--output-res 1280x720 --crop 0,0,0,0)
-if "%4"=="1080"				(set CROP=--output-res 1920x-2 --crop 0,0,0,0)
-if "%4"=="1080p"			(set CROP=--output-res -2x1080 --crop 0,0,0,0)
-if "%4"=="1080f"			(set CROP=--output-res 1920x1080 --crop 0,0,0,0)
-if "%4"=="2160"				(set CROP=--output-res 3840x-2 --crop 0,0,0,0)
-if "%4"=="2160p"			(set CROP=--output-res -2x2160 --crop 0,0,0,0)
-if "%4"=="2160f"			(set CROP=--output-res 3840x2160 --crop 0,0,0,0)
-if "%4"=="1440"				(set CROP=--output-res 1440x1080 --crop 240,0,240,0)
-if "%4"=="1348"				(set CROP=--output-res 1348x1080 --crop 286,0,286,0)
-if "%4"=="1420"				(set CROP=--output-res 1420x1080 --crop 250,0,250,0)
-if "%4"=="1480"				(set CROP=--output-res 1480x1080 --crop 220,0,220,0)
-if "%4"=="1500"				(set CROP=--output-res 1500x1080 --crop 210,0,210,0)
-if "%4"=="1792"				(set CROP=--output-res 1792x1080 --crop 64,0,64,0)
-if "%4"=="1764"				(set CROP=--output-res 1764x1080 --crop 78,0,78,0)
-if "%4"=="1780"				(set CROP=--output-res 1780x1080 --crop 70,0,70,0)
-if "%4"=="1788"				(set CROP=--output-res 1788x1080 --crop 66,0,66,0)
-if "%4"=="1800"				(set CROP=--output-res 1800x1080 --crop 60,0,60,0)
-if "%4"=="c1"				(set CROP=)
-if "%4"=="c2"				(set CROP=)
-if "%4"=="c3"				(set CROP=)
-if "%4"=="c4"				(set CROP=)
-if "%4"=="c5"				(set CROP=)
-if "%4"=="c6"				(set CROP=)
+if "%4"=="copy"				(set "CROP=")
+if "%4"=="696"				(set "CROP=--crop 0,192,0,192")
+if "%4"=="768"				(set "CROP=--crop 0,156,0,156")
+if "%4"=="800"				(set "CROP=--crop 0,140,0,140")
+if "%4"=="804"				(set "CROP=--crop 0,138,0,138")
+if "%4"=="808"				(set "CROP=--crop 0,136,0,136")
+if "%4"=="812"				(set "CROP=--crop 0,134,0,134")
+if "%4"=="816"				(set "CROP=--crop 0,132,0,132")
+if "%4"=="872"				(set "CROP=--crop 0,104,0,104")
+if "%4"=="960"				(set "CROP=--crop 0,60,0,60")
+if "%4"=="1012"				(set "CROP=--crop 0,34,0,34")
+if "%4"=="1024"				(set "CROP=--crop 0,28,0,28")
+if "%4"=="1036"				(set "CROP=--crop 0,22,0,22")
+if "%4"=="1036p"			(set "CROP=--output-res 1920x1036 --crop 0,0,0,0")
+if "%4"=="1040"				(set "CROP=--crop 0,20,0,20")
+if "%4"=="720"				(set "CROP=--output-res 1280x-2 --crop 0,0,0,0")
+if "%4"=="720p"				(set "CROP=--output-res -2x720 --crop 0,0,0,0")
+if "%4"=="720f"				(set "CROP=--output-res 1280x720 --crop 0,0,0,0")
+if "%4"=="1080"				(set "CROP=--output-res 1920x-2 --crop 0,0,0,0")
+if "%4"=="1080p"			(set "CROP=--output-res -2x1080 --crop 0,0,0,0")
+if "%4"=="1080f"			(set "CROP=--output-res 1920x1080 --crop 0,0,0,0")
+if "%4"=="2160"				(set "CROP=--output-res 3840x-2 --crop 0,0,0,0")
+if "%4"=="2160p"			(set "CROP=--output-res -2x2160 --crop 0,0,0,0")
+if "%4"=="2160f"			(set "CROP=--output-res 3840x2160 --crop 0,0,0,0")
+if "%4"=="1440"				(set "CROP=--output-res 1440x1080 --crop 240,0,240,0")
+if "%4"=="1348"				(set "CROP=--output-res 1348x1080 --crop 286,0,286,0")
+if "%4"=="1420"				(set "CROP=--output-res 1420x1080 --crop 250,0,250,0")
+if "%4"=="1480"				(set "CROP=--output-res 1480x1080 --crop 220,0,220,0")
+if "%4"=="1500"				(set "CROP=--output-res 1500x1080 --crop 210,0,210,0")
+if "%4"=="1792"				(set "CROP=--output-res 1792x1080 --crop 64,0,64,0")
+if "%4"=="1764"				(set "CROP=--output-res 1764x1080 --crop 78,0,78,0")
+if "%4"=="1780"				(set "CROP=--output-res 1780x1080 --crop 70,0,70,0")
+if "%4"=="1788"				(set "CROP=--output-res 1788x1080 --crop 66,0,66,0")
+if "%4"=="1800"				(set "CROP=--output-res 1800x1080 --crop 60,0,60,0")
+if "%4"=="c1"				(set "CROP=")
+if "%4"=="c2"				(set "CROP=")
+if "%4"=="c3"				(set "CROP=")
+if "%4"=="c4"				(set "CROP=")
+if "%4"=="c5"				(set "CROP=")
+if "%4"=="c6"				(set "CROP=")
 exit /b
 
 :SETFILTER
-set FILTER=
-if "%5"=="copy"			 	(set FILTER=)
-if "%5"=="edgelevel"	 	(set FILTER=--vpp-edgelevel)
-if "%5"=="smooth"		 	(set FILTER=--vpp-smooth)
-if "%5"=="smooth31"		 	(set FILTER=--vpp-smooth quality=6,qp=31,prec=fp32)
-if "%5"=="smooth63"		 	(set FILTER=--vpp-smooth quality=6,qp=63,prec=fp32)
-if "%5"=="nlmeans"		 	(set FILTER=--vpp-nlmeans)
-if "%5"=="gauss"		 	(set FILTER=--vpp-gauss 3)
-if "%5"=="gauss5"		 	(set FILTER=--vpp-gauss 5)
-if "%5"=="sharp"		 	(set FILTER=--vpp-unsharp)
-if "%5"=="ss"			 	(set FILTER=--vpp-smooth --vpp-unsharp)
-if "%5"=="denoise"		 	(set FILTER=--vpp-nvvfx-denoise strength=0)
-if "%5"=="denoisehq"	 	(set FILTER=--vpp-nvvfx-denoise strength=1)
-if "%5"=="artifact"		 	(set FILTER=--vpp-nvvfx-artifact-reduction mode=0)
-if "%5"=="artifacthq"	 	(set FILTER=--vpp-nvvfx-artifact-reduction mode=1)
-if "%5"=="superres"		 	(set FILTER=--vpp-resize algo=nvvfx-superres,superres-mode=0,superres-strength=0.4)
-if "%5"=="superreshq"	 	(set FILTER=--vpp-resize algo=nvvfx-superres,superres-mode=1,superres-strength=0.4)
-if "%5"=="vsr"			 	(set FILTER=--vpp-resize algo=ngx-vsr,vsr-quality=4 --vpp-unsharp)
-if "%5"=="vsrdenoise"	 	(set FILTER=--vpp-resize algo=ngx-vsr,vsr-quality=4 --vpp-unsharp --vpp-nvvfx-denoise strength=0)
-if "%5"=="vsrdenoisehq"	 	(set FILTER=--vpp-resize algo=ngx-vsr,vsr-quality=4 --vpp-unsharp --vpp-nvvfx-denoise strength=1)
-if "%5"=="vsrartifact"	 	(set FILTER=--vpp-resize algo=ngx-vsr,vsr-quality=4 --vpp-unsharp --vpp-nvvfx-artifact-reduction mode=0)
-if "%5"=="vsrartifacthq" 	(set FILTER=--vpp-resize algo=ngx-vsr,vsr-quality=4 --vpp-unsharp --vpp-nvvfx-artifact-reduction mode=1)
-if "%5"=="log"			 	(set FILTER=--log-packets input_packets.log)
-if "%5"=="f1"			 	(set FILTER=)
-if "%5"=="f2"			 	(set FILTER=)
-if "%5"=="f3"			 	(set FILTER=)
-if "%5"=="f4"			 	(set FILTER=)
-if "%5"=="f5"			 	(set FILTER=)
-if "%5"=="f6"			 	(set FILTER=)
+set "FILTER="
+if "%5"=="copy"			 	(set "FILTER=")
+if "%5"=="edgelevel"	 	(set "FILTER=--vpp-edgelevel")
+if "%5"=="smooth"		 	(set "FILTER=--vpp-smooth")
+if "%5"=="smooth31"		 	(set "FILTER=--vpp-smooth quality=6,qp=31,prec=fp32")
+if "%5"=="smooth63"		 	(set "FILTER=--vpp-smooth quality=6,qp=63,prec=fp32")
+if "%5"=="nlmeans"		 	(set "FILTER=--vpp-nlmeans")
+if "%5"=="gauss"		 	(set "FILTER=--vpp-gauss 3")
+if "%5"=="gauss5"		 	(set "FILTER=--vpp-gauss 5")
+if "%5"=="sharp"		 	(set "FILTER=--vpp-unsharp")
+if "%5"=="ss"			 	(set "FILTER=--vpp-smooth --vpp-unsharp")
+if "%5"=="denoise"		 	(set "FILTER=--vpp-nvvfx-denoise strength=0")
+if "%5"=="denoisehq"	 	(set "FILTER=--vpp-nvvfx-denoise strength=1")
+if "%5"=="artifact"		 	(set "FILTER=--vpp-nvvfx-artifact-reduction mode=0")
+if "%5"=="artifacthq"	 	(set "FILTER=--vpp-nvvfx-artifact-reduction mode=1")
+if "%5"=="superres"		 	(set "FILTER=--vpp-resize algo=nvvfx-superres,superres-mode=0,superres-strength=0.4")
+if "%5"=="superreshq"	 	(set "FILTER=--vpp-resize algo=nvvfx-superres,superres-mode=1,superres-strength=0.4")
+if "%5"=="vsr"			 	(set "FILTER=--vpp-resize algo=ngx-vsr,vsr-quality=4 --vpp-unsharp")
+if "%5"=="vsrdenoise"	 	(set "FILTER=--vpp-resize algo=ngx-vsr,vsr-quality=4 --vpp-unsharp --vpp-nvvfx-denoise strength=0")
+if "%5"=="vsrdenoisehq"	 	(set "FILTER=--vpp-resize algo=ngx-vsr,vsr-quality=4 --vpp-unsharp --vpp-nvvfx-denoise strength=1")
+if "%5"=="vsrartifact"	 	(set "FILTER=--vpp-resize algo=ngx-vsr,vsr-quality=4 --vpp-unsharp --vpp-nvvfx-artifact-reduction mode=0")
+if "%5"=="vsrartifacthq" 	(set "FILTER=--vpp-resize algo=ngx-vsr,vsr-quality=4 --vpp-unsharp --vpp-nvvfx-artifact-reduction mode=1")
+if "%5"=="log"			 	(set "FILTER=--log-packets input_packets.log")
+if "%5"=="f1"			 	(set "FILTER=")
+if "%5"=="f2"			 	(set "FILTER=")
+if "%5"=="f3"			 	(set "FILTER=")
+if "%5"=="f4"			 	(set "FILTER=")
+if "%5"=="f5"			 	(set "FILTER=")
+if "%5"=="f6"			 	(set "FILTER=")
 exit /b
 
 :SETMODE
-set MODE=
-if "%6"=="copy"				(set MODE=)
-if "%6"=="deint"			(set MODE=--interlace auto --vpp-deinterlace adaptive)
-if "%6"=="yadif"			(set MODE=--interlace auto --vpp-yadif mode=auto)
-if "%6"=="yadifbob"			(set MODE=--interlace auto --vpp-yadif mode=bob --vpp-select-every 2)
-if "%6"=="double"			(set MODE=--vpp-fruc double)
-if "%6"=="23fps"			(set MODE=--fps 24000/1001)
-if "%6"=="25fps"			(set MODE=--fps 25.0)
-if "%6"=="30fps"			(set MODE=--fps 30.0)
-if "%6"=="60fps"			(set MODE=--fps 60.0)
-if "%6"=="29fps"			(set MODE=--fps 30000/1001)
-if "%6"=="59fps"			(set MODE=--fps 60000/1001)
-if "%6"=="tweak"			(set MODE=--vpp-tweak brightness=0.0,contrast=1.0,gamma=1.0,saturation=1.0,hue=0.0)
-if "%6"=="brighter"			(set MODE=--vpp-curves preset=lighter)
-if "%6"=="darker"			(set MODE=--vpp-curves preset=darker)
-if "%6"=="vintage"			(set MODE=--vpp-curves preset=vintage)
-if "%6"=="linear"			(set MODE=--vpp-curves "green=0/0 0.5/0.5 1/1:red=0/0 0.5/0.5 1/1:blue=0/0 0.5/0.5 1/1")
-if "%6"=="HDRtoSDR"			(set MODE=--vpp-colorspace matrix=bt2020nc:bt709,colorprim=bt2020:bt709,transfer=smpte2084:bt709,range=auto:auto,hdr2sdr=bt2390)
-if "%6"=="HDRtoSDRR"		(set MODE=--vpp-colorspace matrix=bt2020nc:bt709,colorprim=bt2020:bt709,transfer=smpte2084:bt709,range=auto:auto,hdr2sdr=reinhard)
-if "%6"=="HDRtoSDRM"		(set MODE=--vpp-colorspace matrix=bt2020nc:bt709,colorprim=bt2020:bt709,transfer=smpte2084:bt709,range=auto:auto,hdr2sdr=mobius)
-if "%6"=="HDRtoSDRH"		(set MODE=--vpp-colorspace matrix=bt2020nc:bt709,colorprim=bt2020:bt709,transfer=smpte2084:bt709,range=auto:auto,hdr2sdr=hable)
-set "DV="
-if /i "%6"=="dv" set "DV=1"
-if /i "%6"=="dolby-vision" set "DV=1"
-
-if defined DV (
-	set MODE=--dolby-vision-profile copy --dolby-vision-rpu copy --master-display copy --max-cll copy
-)
+set "MODE="
+if "%6"=="copy"				(set "MODE=")
+if "%6"=="deint"			(set "MODE=--interlace auto --vpp-deinterlace adaptive")
+if "%6"=="yadif"			(set "MODE=--interlace auto --vpp-yadif mode=auto")
+if "%6"=="yadifbob"			(set "MODE=--interlace auto --vpp-yadif mode=bob --vpp-select-every 2")
+if "%6"=="double"			(set "MODE=--vpp-fruc double")
+if "%6"=="23fps"			(set "MODE=--fps 24000/1001")
+if "%6"=="25fps"			(set "MODE=--fps 25.0")
+if "%6"=="30fps"			(set "MODE=--fps 30.0")
+if "%6"=="60fps"			(set "MODE=--fps 60.0")
+if "%6"=="29fps"			(set "MODE=--fps 30000/1001")
+if "%6"=="59fps"			(set "MODE=--fps 60000/1001")
+if "%6"=="tweak"			(set "MODE=--vpp-tweak brightness=0.0,contrast=1.0,gamma=1.0,saturation=1.0,hue=0.0")
+if "%6"=="brighter"			(set "MODE=--vpp-curves preset=lighter")
+if "%6"=="darker"			(set "MODE=--vpp-curves preset=darker")
+if "%6"=="vintage"			(set "MODE=--vpp-curves preset=vintage")
+if "%6"=="linear"			(set "MODE=--vpp-curves green=0/0 0.5/0.5 1/1:red=0/0 0.5/0.5 1/1:blue=0/0 0.5/0.5 1/1")
+if "%6"=="HDRtoSDR"			(set "MODE=--vpp-colorspace matrix=bt2020nc:bt709,colorprim=bt2020:bt709,transfer=smpte2084:bt709,range=auto:auto,hdr2sdr=bt2390")
+if "%6"=="HDRtoSDRR"		(set "MODE=--vpp-colorspace matrix=bt2020nc:bt709,colorprim=bt2020:bt709,transfer=smpte2084:bt709,range=auto:auto,hdr2sdr=reinhard")
+if "%6"=="HDRtoSDRM"		(set "MODE=--vpp-colorspace matrix=bt2020nc:bt709,colorprim=bt2020:bt709,transfer=smpte2084:bt709,range=auto:auto,hdr2sdr=mobius")
+if "%6"=="HDRtoSDRH"		(set "MODE=--vpp-colorspace matrix=bt2020nc:bt709,colorprim=bt2020:bt709,transfer=smpte2084:bt709,range=auto:auto,hdr2sdr=hable")
+if "%6"=="dv"				(set "MODE=--dolby-vision-profile copy --dolby-vision-rpu copy --master-display copy --max-cll copy")
+if "%6"=="dolby-vision"		(set "MODE=--dolby-vision-profile copy --dolby-vision-rpu copy --master-display copy --max-cll copy")
 exit /b
 
 :SETDECODER
-set DECODER=avhw
-if "%7"=="def"				(set DECODER=avhw)
-if "%7"=="hw"				(set DECODER=avhw)
-if "%7"=="sw"				(set DECODER=avsw)
-if "%7"=="auto" 			(set DECODER=)
+set "DECODER=avhw"
+if "%7"=="def"				(set "DECODER=avhw")
+if "%7"=="hw"				(set "DECODER=avhw")
+if "%7"=="sw"				(set "DECODER=avsw")
+if "%7"=="auto" 			(set "DECODER=")
 exit /b
 
 :VALIDATE-PARAMS
@@ -369,6 +350,40 @@ echo.
 echo Your command was: %0 %*
 exit /b
 
+:RUN_PROBE
+setlocal
+set "PROBE_OK=0"
+set "AUTO_CROP="
+set "AUTO_RES="
+set "PS_SCRIPT=%TEMP%\probe_temp_%RANDOM%.ps1"
+set "PS_SET_FILE=%TEMP%\probe_set_vars_%RANDOM%.cmd"
+set "PS_STATUS_FILE=%TEMP%\probe_status_output_%RANDOM%.tmp"
+if exist "%PS_SET_FILE%" del "%PS_SET_FILE%"
+if exist "%PS_STATUS_FILE%" del "%PS_STATUS_FILE%"
+for /f "tokens=1 delims=:" %%a in ('findstr /n "^#PS_RUN_PROBE#" "%~f0"') do set LINE=%%a
+set /a LINE-=1
+more +%LINE% "%~f0" > "%PS_SCRIPT%"
+
+powershell.exe -executionpolicy bypass -file "%PS_SCRIPT%" "%~1" -SetFile "%PS_SET_FILE%" -StatusFile "%PS_STATUS_FILE%"
+
+set "RC=%ERRORLEVEL%"
+
+if exist "%PS_SET_FILE%" call "%PS_SET_FILE%"
+
+%DBG% RUN_PROBE: RC=%RC%
+%DBG% RUN_PROBE: NVEnc_Crop=%NVEnc_Crop%
+%DBG% RUN_PROBE: NVEnc_Res=%NVEnc_Res%
+
+if exist "%PS_SCRIPT%" del "%PS_SCRIPT%"
+if exist "%PS_SET_FILE%" del "%PS_SET_FILE%"
+if exist "%PS_STATUS_FILE%" del "%PS_STATUS_FILE%"
+
+if "%RC%"=="0" (
+	endlocal & set "AUTO_CROP=%NVEnc_Crop%" & set "AUTO_RES=%NVEnc_Res%" & set "PROBE_OK=1"
+	exit /b
+)
+exit /b
+
 :USAGE
 cls
 echo Usage: %~n0 ^<encoder(hevc)^> ^<audio(ac3)^> ^<quality(28)^> ^<crop^> ^<filter^> ^<mode^> ^<decoder(avhw)^>
@@ -390,45 +405,8 @@ echo Example: %~n0   hevc      ac3     auto      auto
 echo Example: %~n0   hevc      copy    auto      1080   vsr
 echo Example: %~n0   hevc      copy    hq        1080   copy
 echo Example: %~n0   hevc      copy    def       copy   copy     copy   sw
-
 echo.
 goto :END
-
-:RUN_PROBE
-setlocal
-set "PROBE_OK=0"
-set "AUTO_CROP="
-set "AUTO_RES="
-
-set "PS_SCRIPT=%TEMP%\probe_temp_%RANDOM%.ps1"
-set "PS_SET_FILE=%TEMP%\probe_set_vars_%RANDOM%.cmd"
-set "PS_STATUS_FILE=%TEMP%\probe_status_output_%RANDOM%.tmp"
-
-if exist "%PS_SET_FILE%" del "%PS_SET_FILE%"
-if exist "%PS_STATUS_FILE%" del "%PS_STATUS_FILE%"
-
-for /f "tokens=1 delims=:" %%a in ('findstr /n "^#PS_RUN_PROBE#" "%~f0"') do set LINE=%%a
-set /a LINE-=1
-more +%LINE% "%~f0" > "%PS_SCRIPT%"
-
-powershell.exe -executionpolicy bypass -file "%PS_SCRIPT%" "%~1" -SetFile "%PS_SET_FILE%" -StatusFile "%PS_STATUS_FILE%"
-set "RC=%ERRORLEVEL%"
-
-if exist "%PS_SET_FILE%" call "%PS_SET_FILE%"
-
-%DBG% RUN_PROBE: RC=%RC%
-%DBG% RUN_PROBE: NVEnc_Crop=%NVEnc_Crop%
-%DBG% RUN_PROBE: NVEnc_Res=%NVEnc_Res%
-
-if exist "%PS_SCRIPT%" del "%PS_SCRIPT%"
-if exist "%PS_SET_FILE%" del "%PS_SET_FILE%"
-if exist "%PS_STATUS_FILE%" del "%PS_STATUS_FILE%"
-
-if "%RC%"=="0" (
-	endlocal & set "AUTO_CROP=%NVEnc_Crop%" & set "AUTO_RES=%NVEnc_Res%" & set "PROBE_OK=1"
-	exit /b
-)
-exit /b
 
 :NOP
 exit /b
@@ -445,14 +423,11 @@ param(
 	[Parameter(Mandatory=$true)]
 	[string]$StatusFile
 )
-
 $ExitCode = 0
-
 function Write-Status ($Message) {
 	$Timestamp = Get-Date -Format "HH:mm:ss"
 	Add-Content -Path $StatusFile -Value "[$Timestamp] $Message"
 }
-
 function Get-Median {
 	param([int[]]$Numbers)
 	$Count = $Numbers.Count
@@ -464,7 +439,6 @@ function Get-Median {
 		return [int](($Sorted[($Count / 2) - 1] + $Sorted[$Count / 2]) / 2)
 	}
 }
-
 $StandardResolutions = @{
 	384 = @{ Crop="0:192:0:192"; Res="1920x696" }
 	312 = @{ Crop="0:156:0:156"; Res="1920x768" }
@@ -481,17 +455,12 @@ $StandardResolutions = @{
 	 40 = @{ Crop="0:20:0:20";	 Res="1920x1040" }
 	  0 = @{ Crop="0:0:0:0";	 Res="1920x1080" }
 }
-
 $StandardWidths = @(1800,1792,1788,1780,1764,1500,1480,1440,1420,1348)
-
 $ffmpegCmd	= "D:\Apps\Commands\bin\ffmpeg.exe"
 $ffprobeCmd = "D:\Apps\Commands\bin\ffprobe.exe"
-
 $ProbeTimes = @("00:02:00","00:10:00","00:20:00")
 $CropResults = @()
-
 if (-not (Test-Path $VideoFile)) { $ExitCode = 1 }
-
 if ($ExitCode -eq 0) {
 	$ResolutionInfo = & $ffprobeCmd -v error -select_streams v:0 -show_entries stream=width,height -of default=noprint_wrappers=1:nokey=1 $VideoFile 2>&1
 	$CleanRes = $ResolutionInfo | Where-Object { $_ -match '^\d+$' }
@@ -499,7 +468,6 @@ if ($ExitCode -eq 0) {
 	$OrigWidth	= [int]$CleanRes[0]
 	$OrigHeight = [int]$CleanRes[1]
 }
-
 if ($ExitCode -eq 0) {
 	foreach ($Time in $ProbeTimes) {
 		$out = & $ffmpegCmd -ss $Time -i $VideoFile -t 5 -vf "cropdetect=limit=24:round=2:reset=0" -f null - 2>&1
@@ -511,70 +479,52 @@ if ($ExitCode -eq 0) {
 	}
 	if ($CropResults.Count -eq 0) { $ExitCode = 4 }
 }
-
 if ($ExitCode -eq 0) {
 	$W = Get-Median $CropResults.W
 	$H = Get-Median $CropResults.H
 	$X = Get-Median $CropResults.X
 	$Y = Get-Median $CropResults.Y
-
 	$CropL=$X; $CropR=$OrigWidth-$X-$W
 	$CropT=$Y; $CropB=$OrigHeight-$Y-$H
 	$TotalV=$CropT+$CropB
-
 	$TotalV = $CropT + $CropB
 	$TotalH = $CropL + $CropR
-
 	if ($TotalV -le 2 -and $TotalH -le 2) {
 		"SET NVEnc_Crop=0:0:0:0" | Out-File -Encoding ASCII $SetFile
 		"SET NVEnc_Res=${OrigWidth}x${OrigHeight}" | Out-File -Encoding ASCII $SetFile -Append
 		exit 0
 	}
-
 	if ($TotalV -le 2 -and $TotalH -gt 8) {
-	
 		$BestW = $StandardWidths |
 			Sort-Object { [math]::Abs($_ - ($OrigWidth - $TotalH)) } |
 			Select-Object -First 1
-	
 		$Side = [int](($OrigWidth - $BestW) / 2)
-	
 		"SET NVEnc_Crop=${Side}:0:${Side}:0" | Out-File -Encoding ASCII $SetFile
 		"SET NVEnc_Res=${BestW}x${OrigHeight}" | Out-File -Encoding ASCII $SetFile -Append
 		exit 0
 	}
-
 	$RejectReason = $null
-
 	if ([math]::Abs($CropT - $CropB) -gt 2) {
 		$RejectReason = "vertical asymmetry (T=$CropT B=$CropB)"
 	}
-
 	elseif ( ($CropT -eq 0 -and $CropB -gt 0) -or ($CropB -eq 0 -and $CropT -gt 0) ) {
 		$RejectReason = "one-sided vertical crop (T=$CropT B=$CropB)"
 	}
-
 	elseif ($TotalV -eq 0 -and [math]::Abs($CropL - $CropR) -gt 2) {
 		$RejectReason = "horizontal asymmetry (no matching standard width)"
 	}
-
 	if ($RejectReason) {
 		Write-Status "REJECTED: $RejectReason"
 		exit 8
 	}
-
 	$Best = $StandardResolutions.GetEnumerator() | Sort-Object { [math]::Abs($_.Key-$TotalV) } | Select-Object -First 1
-
 	$Top=$Best.Value.Crop.Split(':')[1]
 	$Bottom=$Best.Value.Crop.Split(':')[3]
 	$TargetH=$Best.Value.Res.Split('x')[1]
-
 	$FinalL=0; $TargetW=$OrigWidth
 	$NVEncCrop="${FinalL}:${Top}:${FinalL}:${Bottom}"
 	$NVEncRes="${TargetW}x$TargetH"
-
 	"SET NVEnc_Crop=$NVEncCrop" | Out-File -Encoding ASCII $SetFile
 	"SET NVEnc_Res=$NVEncRes"	| Out-File -Encoding ASCII $SetFile -Append
 }
-
 exit $ExitCode
