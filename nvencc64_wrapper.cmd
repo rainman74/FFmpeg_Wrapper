@@ -65,6 +65,7 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if not exist "_Converted\%%
 		echo %ESC%[91mWARNING: Source already encoded as !SRC_CODEC!. Moving file to !TARGET_DIR!.%ESC%[0m
 		move "%%I" "!TARGET_DIR!\" >nul
 		set "SKIP_FILE=1"
+		call :STRIP_TITLE "!TARGET_DIR!\%%I"
 	)
 
 	if not defined SKIP_FILE (
@@ -142,7 +143,7 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if not exist "_Converted\%%
 			%DBG% FILTER_HAS_RESIZE = "!FILTER_HAS_RESIZE!"
 			%DBG% RESIZE_PARAM      = "!RESIZE_PARAM!"
 
-			nvencc64.exe --thread-priority all=lowest --input-thread 1 --output-buf 16 --%DECODER% -i "%%I" -c %ENCODER% --profile %PROFILE% --tier high --level auto --qvbr !QUALITY! !PRESET! --aq-temporal --aq-strength 0 !TUNING! --bref-mode middle !RESIZE_PARAM! !CROP! !FILTER! !MODE! !AUDIO! --sub-copy --chapter-copy -o "_Converted\%%~nI.mkv"
+			nvencc64.exe --thread-priority all=lowest --input-thread 1 --output-buf 16 --%DECODER% -i "%%I" -c %ENCODER% --profile %PROFILE% --tier high --level auto --qvbr !QUALITY! !PRESET! --aq-temporal --aq-strength 0 !TUNING! --bref-mode middle !RESIZE_PARAM! !CROP! !FILTER! !MODE! !AUDIO! --sub-copy --chapter-copy --metadata title= -o "_Converted\%%~nI.mkv"
 
 			for /L %%X in (5,-1,1) do (echo Waiting for %%X seconds... & sleep 1s)
 			echo.
@@ -348,6 +349,11 @@ set "PARAM_ERR=1"
 echo %ESC%[91mERROR: !ERR_MSG!%ESC%[0m
 echo.
 echo Your command was: %0 %*
+exit /b
+
+:STRIP_TITLE
+if not exist "%~1" exit /b
+mkvpropedit "%~1" --edit info --delete title >nul 2>&1
 exit /b
 
 :RUN_PROBE
