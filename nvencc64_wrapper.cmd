@@ -420,6 +420,10 @@ if exist "%PS_SET_FILE%" call "%PS_SET_FILE%"
 %DBG% RUN_PROBE: NVEnc_Crop=%NVEnc_Crop%
 %DBG% RUN_PROBE: NVEnc_Res=%NVEnc_Res%
 
+if exist "%PS_SCRIPT%" del "%PS_SCRIPT%"
+if exist "%PS_SET_FILE%" del "%PS_SET_FILE%"
+if exist "%PS_STATUS_FILE%" del "%PS_STATUS_FILE%"
+
 if "%RC%"=="0" (
 	endlocal & set "AUTO_CROP=%NVEnc_Crop%" & set "AUTO_RES=%NVEnc_Res%" & set "PROBE_OK=1"
 	exit /b
