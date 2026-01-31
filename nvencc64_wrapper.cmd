@@ -65,7 +65,7 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if not exist "_Converted\%%
 		echo %ESC%[91mWARNING: Source already encoded as !SRC_CODEC!. Moving file to !TARGET_DIR!.%ESC%[0m
 		move "%%I" "!TARGET_DIR!\" >nul
 		set "SKIP_FILE=1"
-		call :STRIP_TITLE "!TARGET_DIR!\%%I"
+		call :EDIT_TAGS "!TARGET_DIR!\%%I"
 	)
 
 	if not defined SKIP_FILE (
@@ -144,6 +144,10 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if not exist "_Converted\%%
 			%DBG% RESIZE_PARAM      = "!RESIZE_PARAM!"
 
 			nvencc64.exe --thread-priority all=lowest --input-thread 1 --output-buf 16 --%DECODER% -i "%%I" -c %ENCODER% --profile %PROFILE% --tier high --level auto --qvbr !QUALITY! !PRESET! --aq-temporal --aq-strength 0 !TUNING! --bref-mode middle !RESIZE_PARAM! !CROP! !FILTER! !MODE! !AUDIO! --sub-copy --chapter-copy --metadata title= -o "_Converted\%%~nI.mkv"
+
+			if exist "_Converted\%%~nI.mkv" (
+				call :EDIT_TAGS "_Converted\%%~nI.mkv"
+			)
 
 			for /L %%X in (5,-1,1) do (echo Waiting for %%X seconds... & sleep 1s)
 			echo.
@@ -351,13 +355,72 @@ echo.
 echo Your command was: %0 %*
 exit /b
 
-:STRIP_TITLE
+:AEDIT_TAGS_DEPRECATED
 if not exist "%~1" exit /b
 mkvpropedit "%~1" --edit info --delete title >nul 2>&1
 exit /b
 
+:EDIT_TAGS
+if not exist "%~1" exit /b
+setlocal EnableDelayedExpansion
+set "S=" & set "E="
+set "FILE=%~1"
+set "DBGFILE=%CD%\EDIT_TAGS.debug.txt"
+
+set "PS_SCRIPT=%TEMP%\edit_tags_%RANDOM%.ps1"
+set "PS_SET_FILE=%TEMP%\edit_tags_set_%RANDOM%.cmd"
+
+if exist "%PS_SCRIPT%" del "%PS_SCRIPT%"
+if exist "%PS_SET_FILE%" del "%PS_SET_FILE%"
+
+>"%DBGFILE%" echo === EDIT_TAGS START ===
+>>"%DBGFILE%" echo FILE=%FILE%
+
+rem === extract PowerShell script from this batch ===
+for /f "tokens=1 delims=:" %%A in ('findstr /n "^#PS_EDIT_TAGS_BEGIN#" "%~f0"') do set /a S=%%A
+for /f "tokens=1 delims=:" %%A in ('findstr /n "^#PS_EDIT_TAGS_END#"   "%~f0"') do set /a E=%%A-S
+
+if not defined S exit /b 9
+set /a E=E
+if %E% LEQ 0 exit /b 9
+
+more +%S% "%~f0" | head -n %E% > "%PS_SCRIPT%"
+
+rem === run PowerShell ===
+powershell.exe -NoProfile -ExecutionPolicy Bypass ^
+  -File "%PS_SCRIPT%" "%FILE%" "%PS_SET_FILE%" >>"%DBGFILE%" 2>&1
+
+if errorlevel 1 (
+  >>"%DBGFILE%" echo [ERROR] PowerShell EDIT_TAGS failed
+  goto :EDIT_TAGS_CLEANUP
+)
+
+if not exist "%PS_SET_FILE%" (
+  >>"%DBGFILE%" echo [ERROR] No SET file generated
+  goto :EDIT_TAGS_CLEANUP
+)
+
+call "%PS_SET_FILE%"
+
+>>"%DBGFILE%" echo [DEBUG] ACTIONS=%EDIT_ACTIONS%
+
+if defined EDIT_ACTIONS (
+  mkvpropedit "%FILE%" --edit info --delete title %EDIT_ACTIONS% >>"%DBGFILE%" 2>&1
+) else (
+  mkvpropedit "%FILE%" --edit info --delete title >>"%DBGFILE%" 2>&1
+  >>"%DBGFILE%" echo [DEBUG] Only container title removed
+)
+
+:EDIT_TAGS_CLEANUP
+if exist "%PS_SCRIPT%" del "%PS_SCRIPT%"
+if exist "%PS_SET_FILE%" del "%PS_SET_FILE%"
+
+>>"%DBGFILE%" echo === EDIT_TAGS END ===
+endlocal & exit /b
+
 :RUN_PROBE
 setlocal
+set "S=" & set "E="
 set "PROBE_OK=0"
 set "AUTO_CROP="
 set "AUTO_RES="
@@ -366,9 +429,14 @@ set "PS_SET_FILE=%TEMP%\probe_set_vars_%RANDOM%.cmd"
 set "PS_STATUS_FILE=%TEMP%\probe_status_output_%RANDOM%.tmp"
 if exist "%PS_SET_FILE%" del "%PS_SET_FILE%"
 if exist "%PS_STATUS_FILE%" del "%PS_STATUS_FILE%"
-for /f "tokens=1 delims=:" %%a in ('findstr /n "^#PS_RUN_PROBE#" "%~f0"') do set LINE=%%a
-set /a LINE-=1
-more +%LINE% "%~f0" > "%PS_SCRIPT%"
+for /f "tokens=1 delims=:" %%A in ('findstr /n "^#PS_RUN_PROBE_BEGIN#" "%~f0"') do set /a S=%%A
+for /f "tokens=1 delims=:" %%A in ('findstr /n "^#PS_RUN_PROBE_END#"   "%~f0"') do set /a E=%%A-S
+
+if not defined S exit /b 9
+set /a E=E
+if %E% LEQ 0 exit /b 9
+
+more +%S% "%~f0" | head -n %E% > "%PS_SCRIPT%"
 
 powershell.exe -executionpolicy bypass -file "%PS_SCRIPT%" "%~1" -SetFile "%PS_SET_FILE%" -StatusFile "%PS_STATUS_FILE%"
 
@@ -420,7 +488,7 @@ exit /b
 :END
 exit /b 0
 
-#PS_RUN_PROBE#
+#PS_RUN_PROBE_BEGIN#
 param(
 	[Parameter(Position=0, Mandatory=$true)]
 	[string]$VideoFile,
@@ -464,7 +532,7 @@ $StandardResolutions = @{
 $StandardWidths = @(1800,1792,1788,1780,1764,1500,1480,1440,1420,1348)
 $ffmpegCmd	= "D:\Apps\Commands\bin\ffmpeg.exe"
 $ffprobeCmd = "D:\Apps\Commands\bin\ffprobe.exe"
-$ProbeTimes = @("00:02:00","00:10:00","00:20:00")
+$ProbeTimes = @("00:00:08")
 $CropResults = @()
 if (-not (Test-Path $VideoFile)) { $ExitCode = 1 }
 if ($ExitCode -eq 0) {
@@ -534,3 +602,74 @@ if ($ExitCode -eq 0) {
 	"SET NVEnc_Res=$NVEncRes"	| Out-File -Encoding ASCII $SetFile -Append
 }
 exit $ExitCode
+#PS_RUN_PROBE_END#
+
+#PS_EDIT_TAGS_BEGIN#
+param(
+    [string]$VideoFile,
+    [string]$SetFile
+)
+$ErrorActionPreference='Stop'
+$j=& mkvmerge.exe -J "$VideoFile" | ConvertFrom-Json
+$actions=@()
+function IsPureLang($n){
+    if([string]::IsNullOrWhiteSpace($n)){return $false}
+    $n -match '^(?i)(Deutsch|Englisch|German|English|Stereo|Surround)$'
+}
+function IsFullWord($n){
+    $n -match '^(?i)full$'
+}
+$audioGer=@()
+foreach($t in $j.tracks){
+    if($t.type -eq 'audio' -and $t.properties.language -match '^(?i)(ger|deu)$'){
+        $audioGer+=$t
+    }
+}
+$defaultAudioNum=$null
+if($audioGer.Count -gt 0){
+    $defaultAudioNum=$audioGer[0].properties.number
+}
+foreach($t in $j.tracks){
+    $num=$t.properties.number
+    $type=$t.type
+    $name=$t.properties.track_name
+    if($type -eq 'video'){
+        $actions+="--edit track:$num --set language=und --set flag-default=0 --set flag-forced=0 --delete name"
+        continue
+    }
+    if($type -eq 'audio'){
+        $actions+="--edit track:$num --set flag-forced=0"
+        if($num -eq $defaultAudioNum){
+            $actions+="--edit track:$num --set flag-default=1"
+        }else{
+            $actions+="--edit track:$num --set flag-default=0"
+        }
+        if(-not [string]::IsNullOrWhiteSpace($name)){
+            if($name -match '^(?i)forced$'){
+                $actions+="--edit track:$num --delete name"
+            }elseif(IsPureLang $name){
+                $actions+="--edit track:$num --delete name"
+            }elseif(IsFullWord $name){
+                $actions+="--edit track:$num --delete name"
+            }
+        }
+        continue
+    }
+    if($type -eq 'subtitles'){
+        if($t.properties.forced_track -eq $true){
+            $actions+="--edit track:$num --set flag-default=1"
+        }
+        if(-not [string]::IsNullOrWhiteSpace($name)){
+            if($name -match '^(?i)forced$'){
+                $actions+="--edit track:$num --set name=Forced"
+            }elseif(IsPureLang $name){
+                $actions+="--edit track:$num --delete name"
+            }elseif(IsFullWord $name){
+                $actions+="--edit track:$num --delete name"
+            }
+        }
+        continue
+    }
+}
+"SET EDIT_ACTIONS=$($actions -join ' ')" | Out-File -Encoding ASCII -FilePath $SetFile
+#PS_EDIT_TAGS_END#
