@@ -5,7 +5,8 @@ call setesc
 if '%1'=='-h' goto USAGE
 if '%1'=='' goto USAGE
 
-set "DEBUG_AUTOCROP=1"
+set "EDIT_TAGS=1"
+set "DEBUG_AUTOCROP=0"
 if "%DEBUG_AUTOCROP%"=="1" (
 	set "DBG=echo [DEBUG]"
 ) else (
@@ -65,7 +66,7 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if not exist "_Converted\%%
 		echo %ESC%[91mWARNING: Source already encoded as !SRC_CODEC!. Moving file to !TARGET_DIR!.%ESC%[0m
 		move "%%I" "!TARGET_DIR!\" >nul
 		set "SKIP_FILE=1"
-		call :EDIT_TAGS "!TARGET_DIR!\%%I"
+		if "%EDIT_TAGS%"=="1" call :EDIT_TAGS "!TARGET_DIR!\%%I"
 	)
 
 	if not defined SKIP_FILE (
@@ -146,7 +147,7 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if not exist "_Converted\%%
 			nvencc64.exe --thread-priority all=lowest --input-thread 1 --output-buf 16 --%DECODER% -i "%%I" -c %ENCODER% --profile %PROFILE% --tier high --level auto --qvbr !QUALITY! !PRESET! --aq-temporal --aq-strength 0 !TUNING! --bref-mode middle !RESIZE_PARAM! !CROP! !FILTER! !MODE! !AUDIO! --sub-copy --chapter-copy --metadata title= -o "_Converted\%%~nI.mkv"
 
 			if exist "_Converted\%%~nI.mkv" (
-				call :EDIT_TAGS "_Converted\%%~nI.mkv"
+				if "%EDIT_TAGS%"=="1" call :EDIT_TAGS "_Converted\%%~nI.mkv"
 			)
 
 			for /L %%X in (5,-1,1) do (echo Waiting for %%X seconds... & sleep 1s)
@@ -365,7 +366,6 @@ if not exist "%~1" exit /b
 setlocal EnableDelayedExpansion
 set "S=" & set "E="
 set "FILE=%~1"
-set "DBGFILE=%CD%\EDIT_TAGS.debug.txt"
 
 set "PS_SCRIPT=%TEMP%\edit_tags_%RANDOM%.ps1"
 set "PS_SET_FILE=%TEMP%\edit_tags_set_%RANDOM%.cmd"
@@ -373,10 +373,6 @@ set "PS_SET_FILE=%TEMP%\edit_tags_set_%RANDOM%.cmd"
 if exist "%PS_SCRIPT%" del "%PS_SCRIPT%"
 if exist "%PS_SET_FILE%" del "%PS_SET_FILE%"
 
->"%DBGFILE%" echo === EDIT_TAGS START ===
->>"%DBGFILE%" echo FILE=%FILE%
-
-rem === extract PowerShell script from this batch ===
 for /f "tokens=1 delims=:" %%A in ('findstr /n "^#PS_EDIT_TAGS_BEGIN#" "%~f0"') do set /a S=%%A
 for /f "tokens=1 delims=:" %%A in ('findstr /n "^#PS_EDIT_TAGS_END#"   "%~f0"') do set /a E=%%A-S
 
@@ -386,36 +382,29 @@ if %E% LEQ 0 exit /b 9
 
 more +%S% "%~f0" | head -n %E% > "%PS_SCRIPT%"
 
-rem === run PowerShell ===
 powershell.exe -NoProfile -ExecutionPolicy Bypass ^
-  -File "%PS_SCRIPT%" "%FILE%" "%PS_SET_FILE%" >>"%DBGFILE%" 2>&1
+  -File "%PS_SCRIPT%" "%FILE%" "%PS_SET_FILE%"
 
 if errorlevel 1 (
-  >>"%DBGFILE%" echo [ERROR] PowerShell EDIT_TAGS failed
   goto :EDIT_TAGS_CLEANUP
 )
 
 if not exist "%PS_SET_FILE%" (
-  >>"%DBGFILE%" echo [ERROR] No SET file generated
   goto :EDIT_TAGS_CLEANUP
 )
 
 call "%PS_SET_FILE%"
 
->>"%DBGFILE%" echo [DEBUG] ACTIONS=%EDIT_ACTIONS%
-
 if defined EDIT_ACTIONS (
-  mkvpropedit "%FILE%" --edit info --delete title %EDIT_ACTIONS% >>"%DBGFILE%" 2>&1
+  mkvpropedit "%FILE%" --edit info --delete title %EDIT_ACTIONS%
 ) else (
-  mkvpropedit "%FILE%" --edit info --delete title >>"%DBGFILE%" 2>&1
-  >>"%DBGFILE%" echo [DEBUG] Only container title removed
+  mkvpropedit "%FILE%" --edit info --delete title
 )
 
 :EDIT_TAGS_CLEANUP
 if exist "%PS_SCRIPT%" del "%PS_SCRIPT%"
 if exist "%PS_SET_FILE%" del "%PS_SET_FILE%"
 
->>"%DBGFILE%" echo === EDIT_TAGS END ===
 endlocal & exit /b
 
 :RUN_PROBE
@@ -532,7 +521,7 @@ $StandardResolutions = @{
 $StandardWidths = @(1800,1792,1788,1780,1764,1500,1480,1440,1420,1348)
 $ffmpegCmd	= "D:\Apps\Commands\bin\ffmpeg.exe"
 $ffprobeCmd = "D:\Apps\Commands\bin\ffprobe.exe"
-$ProbeTimes = @("00:00:08")
+$ProbeTimes = @("00:02:00","00:10:00","00:20:00")
 $CropResults = @()
 if (-not (Test-Path $VideoFile)) { $ExitCode = 1 }
 if ($ExitCode -eq 0) {
