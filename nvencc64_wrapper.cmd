@@ -54,9 +54,16 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if not exist "_Converted\%%
 		endlocal & set "SRC_CODEC=%%C"
 	)
 
-	if /i "!SRC_CODEC!"=="HEVC" if /i "%ENCODER%"=="hevc" set "TARGET_DIR=_Converted"
-	if /i "!SRC_CODEC!"=="AVC"  if /i "%ENCODER%"=="h264" set "TARGET_DIR=_Converted"
-	if /i "!SRC_CODEC!"=="AV1"  if /i "%ENCODER%"=="av1"  set "TARGET_DIR=_Converted"
+	if not defined SRC_CODEC (
+		echo ERROR: Could not detect codec. Moving file to _Check.
+		call :ENSURE_DIR "_Check"
+		move "%%I" "_Check\" >nul
+		set "SKIP_FILE=1"
+	) else (
+		if /i "!SRC_CODEC!"=="HEVC" if /i "%ENCODER%"=="hevc" set "TARGET_DIR=_Converted"
+		if /i "!SRC_CODEC!"=="AVC"  if /i "%ENCODER%"=="h264" set "TARGET_DIR=_Converted"
+		if /i "!SRC_CODEC!"=="AV1"  if /i "%ENCODER%"=="av1"  set "TARGET_DIR=_Converted"
+	)
 
 	if defined TARGET_DIR (
 		call :ENSURE_DIR "!TARGET_DIR!"
