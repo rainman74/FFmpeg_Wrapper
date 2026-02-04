@@ -48,16 +48,16 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if not exist "_Converted\%%
 	set "SRC_CODEC="
 
 	for /f "usebackq delims=" %%C in ('mediainfo "--Inform=Video;%%Format%% %%CodecID%%" "%%I"') do set "SRC_CODEC=%%C"
-	echo !SRC_CODEC! | findstr /i /r /c:"HEVC" /c:"H.265" /c:"V_MPEGH/ISO/HEVC" >nul
+	echo !SRC_CODEC! | findstr /i /r "HEVC H\.265 V_MPEGH/ISO/HEVC" >nul
 	if not errorlevel 1 (
 		if /i "%ENCODER%"=="hevc" set "TARGET_DIR=_Converted"
 		if /i "%ENCODER%"=="he10" set "TARGET_DIR=_Converted"
 	)
-	echo !SRC_CODEC! | findstr /i /r /c:"AVC" /c:"H.264" /c:"V_MPEG4/ISO/AVC" >nul
+	echo !SRC_CODEC! | findstr /i /r "AVC H\.264 V_MPEG4/ISO/AVC" >nul
 	if not errorlevel 1 (
 		if /i "%ENCODER%"=="h264" set "TARGET_DIR=_Converted"
 	)
-	echo !SRC_CODEC! | findstr /i /r /c:"AV1" /c:"V_AV1" >nul
+	echo !SRC_CODEC! | findstr /i /r "AV1 V_AV1" >nul
 	if not errorlevel 1 (
 		if /i "%ENCODER%"=="av1" set "TARGET_DIR=_Converted"
 	)
