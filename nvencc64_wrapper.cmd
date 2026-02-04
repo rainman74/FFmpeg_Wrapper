@@ -144,7 +144,7 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if not exist "_Converted\%%
 			%DBG% FILTER_HAS_RESIZE = "!FILTER_HAS_RESIZE!"
 			%DBG% RESIZE_PARAM      = "!RESIZE_PARAM!"
 
-			nvencc64.exe --thread-priority all=lowest --input-thread 1 --output-buf 16 --%DECODER% -i "%%I" -c %ENCODER% --profile %PROFILE% --tier high --level auto --qvbr !QUALITY! !PRESET! --aq-temporal --aq-strength 0 !TUNING! --bref-mode middle !RESIZE_PARAM! !CROP! !FILTER! !MODE! !AUDIO! --sub-copy --chapter-copy --metadata title= -o "_Converted\%%~nI.mkv"
+			nvencc64.exe --thread-priority all=lowest --input-thread 1 --output-buf 16 --%DECODER% -i "%%I" -c %ENCODER% --profile %PROFILE% --tier high --level auto --qvbr !QUALITY! !PRESET! --aq-temporal --aq-strength 0 !TUNING! --bref-mode middle !RESIZE_PARAM! !CROP! !FILTER! !MODE! !AUDIO! --sub-copy --chapter-copy -o "_Converted\%%~nI.mkv"
 
 			if exist "_Converted\%%~nI.mkv" (
 				if "%EDIT_TAGS%"=="1" call :EDIT_TAGS "_Converted\%%~nI.mkv"
@@ -356,13 +356,8 @@ echo.
 echo Your command was: %0 %*
 exit /b
 
-:AEDIT_TAGS_DEPRECATED
-if not exist "%~1" exit /b
-mkvpropedit "%~1" --edit info --delete title >nul 2>&1
-exit /b
-
 :EDIT_TAGS
-if not exist "%~1" exit /b
+if not exist "%~1" exit /b 1
 setlocal EnableDelayedExpansion
 set "S=" & set "E="
 set "FILE=%~1"
@@ -386,11 +381,17 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass ^
   -File "%PS_SCRIPT%" "%FILE%" "%PS_SET_FILE%"
 
 if errorlevel 1 (
-  goto :EDIT_TAGS_CLEANUP
+  echo EDIT_TAGS PowerShell failed
+  if not exist "_Check" md "_Check"
+  move "%FILE%" "_Check\" >nul
+  endlocal & exit /b 1
 )
 
 if not exist "%PS_SET_FILE%" (
-  goto :EDIT_TAGS_CLEANUP
+  echo EDIT_TAGS: missing PS output
+  if not exist "_Check" md "_Check"
+  move "%FILE%" "_Check\" >nul
+  endlocal & exit /b 1
 )
 
 call "%PS_SET_FILE%"
@@ -399,6 +400,12 @@ if defined EDIT_ACTIONS (
   mkvpropedit "%FILE%" --edit info --delete title %EDIT_ACTIONS%
 ) else (
   mkvpropedit "%FILE%" --edit info --delete title
+)
+if errorlevel 1 (
+    echo mkvpropedit failed
+    if not exist "_Check" md "_Check"
+    move "%FILE%" "_Check\" >nul
+    endlocal & exit /b 1
 )
 
 :EDIT_TAGS_CLEANUP
