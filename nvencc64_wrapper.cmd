@@ -8,7 +8,7 @@ if '%1'=='' goto USAGE
 set "EDIT_TAGS=1"
 set "DEBUG_AUTOCROP=0"
 if "%DEBUG_AUTOCROP%"=="1" (
-	set "DBG=echo [DEBUG]"
+	set "DBG=call :DEBUG"
 ) else (
 	set "DBG=call :NOP"
 )
@@ -36,7 +36,7 @@ call :MAIN
 goto :END
 
 :MAIN
-if not exist _Converted md _Converted
+call :ENSURE_DIR "_Converted"
 for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if not exist "_Converted\%%~nI.mkv" (
 	set "FILENAME=%%~nI"
 	set "SKIP_FILE="
@@ -62,7 +62,7 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if not exist "_Converted\%%
 		if /i "%ENCODER%"=="av1" set "TARGET_DIR=_Converted"
 	)
 	if defined TARGET_DIR (
-		if not exist "!TARGET_DIR!" md "!TARGET_DIR!"
+		call :ENSURE_DIR "!TARGET_DIR!"
 		echo %ESC%[91mWARNING: Source already encoded as !SRC_CODEC!. Moving file to !TARGET_DIR!.%ESC%[0m
 		move "%%I" "!TARGET_DIR!\" >nul
 		set "SKIP_FILE=1"
@@ -93,7 +93,7 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if not exist "_Converted\%%
 			call :RUN_PROBE "%%I"
 			if "!PROBE_OK!"=="0" (
 				%DBG% RUN_PROBE failed, moving file to _Check
-				if not exist "_Check" md "_Check"
+				call :ENSURE_DIR "_Check"
 				move "%%I" "_Check\" >nul
 				set "SKIP_FILE=1"
 			) else (
@@ -382,14 +382,14 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass ^
 
 if errorlevel 1 (
   echo EDIT_TAGS PowerShell failed
-  if not exist "_Check" md "_Check"
+  call :ENSURE_DIR "_Check"
   move "%FILE%" "_Check\" >nul
   endlocal & exit /b 1
 )
 
 if not exist "%PS_SET_FILE%" (
   echo EDIT_TAGS: missing PS output
-  if not exist "_Check" md "_Check"
+  call :ENSURE_DIR "_Check"
   move "%FILE%" "_Check\" >nul
   endlocal & exit /b 1
 )
@@ -403,7 +403,7 @@ if defined EDIT_ACTIONS (
 )
 if errorlevel 1 (
     echo mkvpropedit failed
-    if not exist "_Check" md "_Check"
+    call :ENSURE_DIR "_Check"
     move "%FILE%" "_Check\" >nul
     endlocal & exit /b 1
 )
@@ -480,6 +480,16 @@ goto :END
 
 :NOP
 exit /b
+
+:ENSURE_DIR
+if not exist "%~1" md "%~1"
+exit /b
+
+:DEBUG
+setlocal EnableDelayedExpansion
+set "DBG_MSG=%*"
+echo [DEBUG] !DBG_MSG!
+endlocal & exit /b
 
 :END
 exit /b 0
