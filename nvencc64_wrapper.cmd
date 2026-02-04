@@ -620,10 +620,16 @@ $j=& mkvmerge.exe -J "$VideoFile" | ConvertFrom-Json
 $actions=@()
 function IsPureLang($n){
     if([string]::IsNullOrWhiteSpace($n)){return $false}
-    $n -match '^(?i)(Deutsch|Englisch|German|English|Stereo|Surround)$'
+    $n -match '^(?i)(Deutsch|Englisch|German|English|French|Stereo|Surround)$'
 }
 function IsFullWord($n){
     $n -match '^(?i)full$'
+}
+function NormalizeName($n){
+    if([string]::IsNullOrWhiteSpace($n)){return $null}
+    if($n -match '(?i)sdh'){ return 'SDH' }
+    if($n -match '(?i)forced'){ return 'Forced' }
+    return $null
 }
 $audioGer=@()
 foreach($t in $j.tracks){
@@ -651,8 +657,9 @@ foreach($t in $j.tracks){
             $actions+="--edit track:$num --set flag-default=0"
         }
         if(-not [string]::IsNullOrWhiteSpace($name)){
-            if($name -match '^(?i)forced$'){
-                $actions+="--edit track:$num --delete name"
+            $normalizedName = NormalizeName $name
+            if($null -ne $normalizedName){
+                $actions+="--edit track:$num --set name=$normalizedName"
             }elseif(IsPureLang $name){
                 $actions+="--edit track:$num --delete name"
             }elseif(IsFullWord $name){
@@ -666,8 +673,9 @@ foreach($t in $j.tracks){
             $actions+="--edit track:$num --set flag-default=1"
         }
         if(-not [string]::IsNullOrWhiteSpace($name)){
-            if($name -match '^(?i)forced$'){
-                $actions+="--edit track:$num --set name=Forced"
+            $normalizedName = NormalizeName $name
+            if($null -ne $normalizedName){
+                $actions+="--edit track:$num --set name=$normalizedName"
             }elseif(IsPureLang $name){
                 $actions+="--edit track:$num --delete name"
             }elseif(IsFullWord $name){
