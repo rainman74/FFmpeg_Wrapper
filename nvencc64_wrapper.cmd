@@ -47,26 +47,24 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if not exist "_Converted\%%
 	set "RESIZE_REQUIRED=0"
 	set "SRC_CODEC="
 
-	for /f "usebackq delims=" %%C in ('mediainfo "--Inform=Video;%%Format%% %%CodecID%%" "%%I"') do set "SRC_CODEC=%%C"
-	echo !SRC_CODEC! | findstr /i /r "HEVC H\.265 V_MPEGH/ISO/HEVC" >nul
-	if not errorlevel 1 (
-		if /i "%ENCODER%"=="hevc" set "TARGET_DIR=_Converted"
-		if /i "%ENCODER%"=="he10" set "TARGET_DIR=_Converted"
+	setlocal DisableDelayedExpansion
+	for /f "usebackq delims=" %%C in (`
+		mediainfo "--Inform=Video;%%Format%%" "%%I"
+	`) do (
+		endlocal & set "SRC_CODEC=%%C"
 	)
-	echo !SRC_CODEC! | findstr /i /r "AVC H\.264 V_MPEG4/ISO/AVC" >nul
-	if not errorlevel 1 (
-		if /i "%ENCODER%"=="h264" set "TARGET_DIR=_Converted"
-	)
-	echo !SRC_CODEC! | findstr /i /r "AV1 V_AV1" >nul
-	if not errorlevel 1 (
-		if /i "%ENCODER%"=="av1" set "TARGET_DIR=_Converted"
-	)
+
+	if /i "!SRC_CODEC!"=="HEVC" if /i "%ENCODER%"=="hevc" set "TARGET_DIR=_Converted"
+	if /i "!SRC_CODEC!"=="AVC"  if /i "%ENCODER%"=="h264" set "TARGET_DIR=_Converted"
+	if /i "!SRC_CODEC!"=="AV1"  if /i "%ENCODER%"=="av1"  set "TARGET_DIR=_Converted"
+
 	if defined TARGET_DIR (
 		call :ENSURE_DIR "!TARGET_DIR!"
+		set "MOVED_FILE=!TARGET_DIR!\%%~nxI"
 		echo %ESC%[91mWARNING: Source already encoded as !SRC_CODEC!. Moving file to !TARGET_DIR!.%ESC%[0m
-		move "%%I" "!TARGET_DIR!\" >nul
+		move "%%I" "!MOVED_FILE!" >nul
 		set "SKIP_FILE=1"
-		if "%EDIT_TAGS%"=="1" call :EDIT_TAGS "!TARGET_DIR!\%%I"
+		if "%EDIT_TAGS%"=="1" call :EDIT_TAGS "!MOVED_FILE!"
 	)
 
 	if not defined SKIP_FILE (
@@ -397,9 +395,9 @@ if not exist "%PS_SET_FILE%" (
 call "%PS_SET_FILE%"
 
 if defined EDIT_ACTIONS (
-  mkvpropedit "%FILE%" --edit info --delete title %EDIT_ACTIONS%
+  mkvpropedit "%FILE%" --edit info --delete title %EDIT_ACTIONS% >nul
 ) else (
-  mkvpropedit "%FILE%" --edit info --delete title
+  mkvpropedit "%FILE%" --edit info --delete title >nul
 )
 if errorlevel 1 (
     echo mkvpropedit failed
@@ -536,7 +534,7 @@ $StandardResolutions = @{
 	  0 = @{ Crop="0:0:0:0";	 Res="1920x1080" }
 }
 $StandardWidths = @(1800,1792,1788,1780,1764,1500,1480,1440,1420,1348)
-$ffmpegCmd	= "D:\Apps\Commands\bin\ffmpeg.exe"
+$ffmpegCmd = "D:\Apps\Commands\bin\ffmpeg.exe"
 $ffprobeCmd = "D:\Apps\Commands\bin\ffprobe.exe"
 $ProbeTimes = @("00:02:00","00:10:00","00:20:00")
 $CropResults = @()
@@ -564,9 +562,8 @@ if ($ExitCode -eq 0) {
 	$H = Get-Median $CropResults.H
 	$X = Get-Median $CropResults.X
 	$Y = Get-Median $CropResults.Y
-	$CropL=$X; $CropR=$OrigWidth-$X-$W
-	$CropT=$Y; $CropB=$OrigHeight-$Y-$H
-	$TotalV=$CropT+$CropB
+	$CropL = $X; $CropR=$OrigWidth-$X-$W
+	$CropT = $Y; $CropB=$OrigHeight-$Y-$H
 	$TotalV = $CropT + $CropB
 	$TotalH = $CropL + $CropR
 	if ($TotalV -le 2 -and $TotalH -le 2) {
