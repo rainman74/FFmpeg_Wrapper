@@ -2,6 +2,15 @@
 
 :INIT
 call SETESC
+
+set "TOK_ENCODER=def hevc he10 h264 av1"
+set "TOK_AUDIO=copy copy1 copy2 copy12 copy23 ac3 aac eac3"
+set "TOK_QUALITY=def auto hq uhq lq ulq"
+set "TOK_CROP=copy auto c1 c2 c3 c4 c5 c6 696 768 800 804 808 812 816 872 960 1012 1024 1036 1036p 1040 720 720p 720f 1080 1080p 1080f 2160 2160p 2160f 1440 1348 1420 1480 1500 1792 1764 1780 1788 1800"
+set "TOK_FILTER=copy f1 f2 f3 f4 f5 f6 edgelevel smooth smooth31 smooth63 nlmeans gauss gauss5 sharp ss denoise denoisehq artifact artifacthq superres superreshq vsr vsrdenoise vsrdenoisehq vsrartifact vsrartifacthq log"
+set "TOK_MODE=copy deint yadif yadifbob double 23fps 25fps 30fps 60fps 29fps 59fps brighter darker vintage linear tweak HDRtoSDR HDRtoSDRR HDRtoSDRM HDRtoSDRH dv dolby-vision"
+set "TOK_DECODER=def hw sw auto"
+
 if '%1'=='-h' goto USAGE
 if '%1'=='' goto USAGE
 
@@ -21,11 +30,11 @@ call :SETCROP	 %1 %2 %3 %4 %5 %6 %7
 call :SETFILTER	 %1 %2 %3 %4 %5 %6 %7
 set "FILTER_HAS_RESIZE=0"
 if defined FILTER (
-	echo(!FILTER! | findstr /i "--vpp-resize" >nul && set "FILTER_HAS_RESIZE=1"
+	echo(!FILTER! | findstr /i /c:"--vpp-resize" >nul && set "FILTER_HAS_RESIZE=1"
 )
 call :SETMODE	 %1 %2 %3 %4 %5 %6 %7
 if defined MODE (
-	echo(!MODE! | findstr /i "--vpp-resize" >nul && set "FILTER_HAS_RESIZE=1"
+	echo(!MODE! | findstr /i /c:"--vpp-resize" >nul && set "FILTER_HAS_RESIZE=1"
 )
 call :SETDECODER %1 %2 %3 %4 %5 %6 %7
 
@@ -120,7 +129,7 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if not exist "_Converted\%%
 		)
 
 		if not "!CROP_MODE!"=="AUTO" if defined CROP (
-			echo !CROP! | findstr /i "--output-res" >nul && (
+			echo(!CROP! | findstr /i /c:"--output-res" >nul && (
 				if not "!CROP!"=="--crop 0,0,0,0" (
 					set "RESIZE_REQUIRED=1"
 				)
@@ -330,35 +339,32 @@ if "%7"=="sw"				(set "DECODER=avsw")
 if "%7"=="auto" 			(set "DECODER=")
 exit /b
 
+:VALIDATE_ONE
+if "%~1"=="" exit /b
+set "VALID=0"
+for %%A in (!%2!) do if /i "%~1"=="%%A" set "VALID=1"
+if "!VALID!"=="0" (
+	set "ERR_MSG=Invalid %3 '%~1' at position %4. Valid values: [!%2: =|!]"
+	goto :PARAM_ERROR
+)
+exit /b
+
 :VALIDATE-PARAMS
 set "PARAM_ERR=0"
-if not "%3"=="" (
-	set "VALID=0"
-	for %%A in (def auto hq uhq lq ulq) do if /i "%3"=="%%A" set "VALID=1"
-	if "!VALID!"=="0" (set "ERR_MSG=Invalid quality '%3' at position 3. Valid values: [def|auto|hq|uhq|lq|ulq]" & goto :PARAM_ERROR)
-)
-if not "%4"=="" (
-	set "VALID=0"
-	for %%A in (copy auto c1 c2 c3 c4 c5 c6 696 768 800 804 808 812 816 872 960 1012 1024 1036 1036p 1040 720 720p 720f 1080 1080p 1080f 2160 2160p 2160f 1440 1348 1420 1480 1500 1792 1764 1780 1788 1800) do if /i "%4"=="%%A" set "VALID=1"
-	if "!VALID!"=="0" (set "ERR_MSG=Invalid crop/resolution '%4' at position 4." & goto :PARAM_ERROR)
-)
-if not "%5"=="" (
-	set "VALID=0"
-	for %%A in (copy f1 f2 f3 f4 f5 f6 edgelevel smooth smooth31 smooth63 nlmeans gauss gauss5 sharp ss denoise denoisehq artifact artifacthq superres superreshq vsr vsrdenoise vsrdenoisehq vsrartifact vsrartifacthq log) do if /i "%5"=="%%A" set "VALID=1"
-	if "!VALID!"=="0" (set "ERR_MSG=Invalid filter '%5' at position 5." & goto :PARAM_ERROR)
-)
-if not "%6"=="" (
-	set "VALID=0"
-	for %%A in (copy deint yadif yadifbob double 23fps 25fps 30fps 60fps 29fps 59fps brighter darker vintage linear tweak HDRtoSDR HDRtoSDRR HDRtoSDRM HDRtoSDRH dv dolby-vision) do if /i "%6"=="%%A" set "VALID=1"
-	if "!VALID!"=="0" (set "ERR_MSG=Invalid mode '%6' at position 6." & goto :PARAM_ERROR)
-)
+
+call :VALIDATE_ONE "%1" TOK_ENCODER encoder 1
+call :VALIDATE_ONE "%2" TOK_AUDIO   audio   2
+call :VALIDATE_ONE "%3" TOK_QUALITY quality 3
+call :VALIDATE_ONE "%4" TOK_CROP    crop    4
+call :VALIDATE_ONE "%5" TOK_FILTER  filter  5
+call :VALIDATE_ONE "%6" TOK_MODE    mode    6
+call :VALIDATE_ONE "%7" TOK_DECODER decoder 7
+
 exit /b
 
 :PARAM_ERROR
 set "PARAM_ERR=1"
 echo %ESC%[91mERROR: !ERR_MSG!%ESC%[0m
-echo.
-echo Your command was: %0 %*
 exit /b
 
 :EDIT_TAGS
@@ -459,20 +465,51 @@ if "%RC%"=="0" (
 )
 exit /b
 
+:PRINT_TOK
+setlocal EnableDelayedExpansion
+
+set "LABEL=%~1"
+set "TOKVAR=%~2"
+set "PAD=10"
+set "SPACES=          "
+set "PREFIX=%LABEL%!SPACES!"
+set "PREFIX=!PREFIX:~0,%PAD%!"
+set "INDENT=!SPACES:~0,%PAD%!"
+set "LINE=!PREFIX!= ["
+set "FIRST=1"
+set WRAP=100
+
+for %%T in (!%TOKVAR%!) do (
+	if "!FIRST!"=="1" (
+		set "FIRST=0"
+		set "LINE=!LINE!%%T"
+	) else (
+		set "TEST=!LINE!|%%T]"
+		if not "!TEST:~0,%WRAP%!"=="!TEST!" (
+			echo !LINE!^|
+			set "LINE=!INDENT!  %%T"
+		) else (
+			set "LINE=!LINE!^|%%T"
+		)
+	)
+)
+
+echo !LINE!]
+endlocal
+exit /b
+
 :USAGE
+setlocal EnableDelayedExpansion
 cls
 echo Usage: %~n0 ^<encoder(hevc)^> ^<audio(ac3)^> ^<quality(28)^> ^<crop^> ^<filter^> ^<mode^> ^<decoder(avhw)^>
 echo.
-echo encoder = [def^|hevc^|he10^|h264^|av1]
-echo audio   = [copy(1/2/12)^|ac3(lq)^|aac(lq)^|eac3(lq)]
-echo quality = [def^|auto^|lq^|ulq^|hq^|uhq]
-echo crop    = [copy^|auto^|c(1-6)^|696^|768^|800^|804^|808^|812^|816^|872^|960^|1012^|1024^|1036^|1040^|720(f/p)^|1080(f/p)^|2160(f/p)]
-echo           [1440^|1348^|1420^|1480^|1500^|1792^|1764^|1780^|1788^|1800]
-echo filter  = [copy^|f(1-6)^|edgelevel^|smooth(31/63)^|nlmeans^|gauss(5)^|sharp^|ss^|denoise(hq)^|artifact(hq)^|superres(hq)]
-echo           [vsr^|vsrdenoise(hq)^|vsrartifact(hq)]
-echo mode    = [copy^|deint^|yadif(bob)^|double^|23fps^|25fps^|30fps^|60fps^|29fps^|59fps]
-echo           [brighter^|darker^|vintage^|linear^|tweak^|HDRtoSDR(R/M/H)^|dv/dolby-vision]
-echo decoder = [def^|hw^|sw]
+call :PRINT_TOK encoder TOK_ENCODER
+call :PRINT_TOK audio   TOK_AUDIO
+call :PRINT_TOK quality TOK_QUALITY
+call :PRINT_TOK crop    TOK_CROP
+call :PRINT_TOK filter  TOK_FILTER
+call :PRINT_TOK mode    TOK_MODE
+call :PRINT_TOK decoder TOK_DECODER
 echo.
 echo Example: %~n0 ^| encoder ^| audio ^| quality ^| crop ^| filter ^| mode ^| decoder ^|
 echo Example: %~n0   hevc      ac3
@@ -481,6 +518,7 @@ echo Example: %~n0   hevc      copy    auto      1080   vsr
 echo Example: %~n0   hevc      copy    hq        1080   copy
 echo Example: %~n0   hevc      copy    def       copy   copy     copy   sw
 echo.
+endlocal
 goto :END
 
 :SETESC
