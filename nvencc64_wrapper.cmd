@@ -335,22 +335,22 @@ set "PARAM_ERR=0"
 if not "%3"=="" (
 	set "VALID=0"
 	for %%A in (def auto hq uhq lq ulq) do if /i "%3"=="%%A" set "VALID=1"
-	if "!VALID!"=="0" (set "ERR_MSG=Invalid quality "%3" at position 3. Valid values: [def|auto|hq|uhq|lq|ulq]" & goto :PARAM_ERROR)
+	if "!VALID!"=="0" (set "ERR_MSG=Invalid quality '%3' at position 3. Valid values: [def|auto|hq|uhq|lq|ulq]" & goto :PARAM_ERROR)
 )
 if not "%4"=="" (
 	set "VALID=0"
 	for %%A in (copy auto c1 c2 c3 c4 c5 c6 696 768 800 804 808 812 816 872 960 1012 1024 1036 1036p 1040 720 720p 720f 1080 1080p 1080f 2160 2160p 2160f 1440 1348 1420 1480 1500 1792 1764 1780 1788 1800) do if /i "%4"=="%%A" set "VALID=1"
-	if "!VALID!"=="0" (set "ERR_MSG=Invalid crop/resolution "%4" at position 4." & goto :PARAM_ERROR)
+	if "!VALID!"=="0" (set "ERR_MSG=Invalid crop/resolution '%4' at position 4." & goto :PARAM_ERROR)
 )
 if not "%5"=="" (
 	set "VALID=0"
 	for %%A in (copy f1 f2 f3 f4 f5 f6 edgelevel smooth smooth31 smooth63 nlmeans gauss gauss5 sharp ss denoise denoisehq artifact artifacthq superres superreshq vsr vsrdenoise vsrdenoisehq vsrartifact vsrartifacthq log) do if /i "%5"=="%%A" set "VALID=1"
-	if "!VALID!"=="0" (set "ERR_MSG=Invalid filter "%5" at position 5." & goto :PARAM_ERROR)
+	if "!VALID!"=="0" (set "ERR_MSG=Invalid filter '%5' at position 5." & goto :PARAM_ERROR)
 )
 if not "%6"=="" (
 	set "VALID=0"
 	for %%A in (copy deint yadif yadifbob double 23fps 25fps 30fps 60fps 29fps 59fps brighter darker vintage linear tweak HDRtoSDR HDRtoSDRR HDRtoSDRM HDRtoSDRH dv dolby-vision) do if /i "%6"=="%%A" set "VALID=1"
-	if "!VALID!"=="0" (set "ERR_MSG=Invalid mode "%6" at position 6." & goto :PARAM_ERROR)
+	if "!VALID!"=="0" (set "ERR_MSG=Invalid mode '%6' at position 6." & goto :PARAM_ERROR)
 )
 exit /b
 
