@@ -1,15 +1,8 @@
 @echo off & setlocal enabledelayedexpansion
 
 :INIT
-call SETESC
-
-set "TOK_ENCODER=def hevc he10 h264 av1"
-set "TOK_AUDIO=copy copy1 copy2 copy12 copy23 ac3 aac eac3"
-set "TOK_QUALITY=def auto hq uhq lq ulq"
-set "TOK_CROP=copy auto c1 c2 c3 c4 c5 c6 696 768 800 804 808 812 816 872 960 1012 1024 1036 1036p 1040 720 720p 720f 1080 1080p 1080f 2160 2160p 2160f 1440 1348 1420 1480 1500 1792 1764 1780 1788 1800"
-set "TOK_FILTER=copy f1 f2 f3 f4 f5 f6 edgelevel smooth smooth31 smooth63 nlmeans gauss gauss5 sharp ss denoise denoisehq artifact artifacthq superres superreshq vsr vsrdenoise vsrdenoisehq vsrartifact vsrartifacthq log"
-set "TOK_MODE=copy deint yadif yadifbob double 23fps 25fps 30fps 60fps 29fps 59fps brighter darker vintage linear tweak HDRtoSDR HDRtoSDRR HDRtoSDRM HDRtoSDRH dv dolby-vision"
-set "TOK_DECODER=def hw sw auto"
+call :SETESC
+call :SETTOKEN
 
 if '%1'=='-h' goto USAGE
 if '%1'=='' goto USAGE
@@ -46,9 +39,11 @@ goto :END
 
 :MAIN
 call :ENSURE_DIR "_Converted"
-for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if not exist "_Converted\%%~nI.mkv" (
+set "FOUND=0"
+for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if exist "%%I" if not exist "_Converted\%%~nI.mkv" (
 	echo %ESC%[101;93m %%I %ESC%[0m
 
+	set "FOUND=1"
 	set "FILENAME=%%~nI"
 	set "SKIP_FILE="
 	set "RESIZE_PARAM="
@@ -58,16 +53,9 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if not exist "_Converted\%%
 	set "RESIZE_REQUIRED=0"
 	set "SRC_CODEC="
 
-	setlocal DisableDelayedExpansion
-	set "SRC_CODEC="
-
-	for /f "usebackq delims=" %%C in (`
-		mediainfo "--Inform=Video;%%Format%%" "%%I"
-	`) do (
+	for /f "usebackq delims=" %%C in (`mediainfo "--Inform=Video;%%Format%%" "%%I"`) do (
 		set "SRC_CODEC=%%C"
 	)
-
-	endlocal & set "SRC_CODEC=%SRC_CODEC%"
 
 	if not defined SRC_CODEC (
 		echo ERROR: Could not detect codec. Moving file to _Check.
@@ -180,6 +168,7 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if not exist "_Converted\%%
 		)
 	)
 )
+if "%FOUND%"=="0" echo No files found.
 exit /b
 
 :SETQUALITY-HEVC
@@ -501,18 +490,18 @@ set FIRST=1
 set WRAP=120
 
 for %%T in (!%TOKVAR%!) do (
-    if "!FIRST!"=="1" (
-        set FIRST=0
-        set "LINE=!LINE!%%T"
-    ) else (
-        set "TEST=!LINE!|%%T]"
-        if not "!TEST:~0,%WRAP%!"=="!TEST!" (
-            echo !LINE!^|
-            set "LINE=!INDENT! %%T"
-        ) else (
-            set "LINE=!LINE!^|%%T"
-        )
-    )
+	if "!FIRST!"=="1" (
+		set FIRST=0
+		set "LINE=!LINE!%%T"
+	) else (
+		set "TEST=!LINE!|%%T]"
+		if not "!TEST:~0,%WRAP%!"=="!TEST!" (
+			echo !LINE!^|
+			set "LINE=!INDENT! %%T"
+		) else (
+			set "LINE=!LINE!^|%%T"
+		)
+	)
 )
 
 echo !LINE!]
@@ -544,6 +533,16 @@ goto :END
 
 :SETESC
 for /f "delims=" %%A in ('echo prompt $E^| cmd') do set "ESC=%%A"
+exit /b
+
+:SETTOKEN
+set "TOK_ENCODER=def hevc he10 h264 av1"
+set "TOK_AUDIO=copy copy1 copy2 copy12 copy23 ac3 aac eac3"
+set "TOK_QUALITY=def auto hq uhq lq ulq"
+set "TOK_CROP=copy auto c1 c2 c3 c4 c5 c6 696 768 800 804 808 812 816 872 960 1012 1024 1036 1036p 1040 720 720p 720f 1080 1080p 1080f 2160 2160p 2160f 1440 1348 1420 1480 1500 1792 1764 1780 1788 1800"
+set "TOK_FILTER=copy f1 f2 f3 f4 f5 f6 edgelevel smooth smooth31 smooth63 nlmeans gauss gauss5 sharp ss denoise denoisehq artifact artifacthq superres superreshq vsr vsrdenoise vsrdenoisehq vsrartifact vsrartifacthq log"
+set "TOK_MODE=copy deint yadif yadifbob double 23fps 25fps 30fps 60fps 29fps 59fps brighter darker vintage linear tweak HDRtoSDR HDRtoSDRR HDRtoSDRM HDRtoSDRH dv dolby-vision"
+set "TOK_DECODER=def hw sw auto"
 exit /b
 
 :NOP
