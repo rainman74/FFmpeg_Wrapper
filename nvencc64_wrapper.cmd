@@ -138,7 +138,7 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if not exist "_Converted\%%
 
 		setlocal DisableDelayedExpansion
 		echo "file:\\\%%~dI%%~pI"| sed -r "s/[\"]/\a/g; s/[\\]/\//g; s/[ ]/\%%20/g; s/[#]/\%%23/g; s/[']/\%%27/g; s/!/%%21/g"
-		setlocal EnableDelayedExpansion
+		endlocal
 
 		mediainfo --Inform="General;%%Duration/String2%% - %%FileSize/String4%%" "%%I"
 
