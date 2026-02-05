@@ -47,6 +47,8 @@ goto :END
 :MAIN
 call :ENSURE_DIR "_Converted"
 for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if not exist "_Converted\%%~nI.mkv" (
+	echo %ESC%[101;93m %%I %ESC%[0m
+
 	set "FILENAME=%%~nI"
 	set "SKIP_FILE="
 	set "RESIZE_PARAM="
@@ -57,11 +59,15 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if not exist "_Converted\%%
 	set "SRC_CODEC="
 
 	setlocal DisableDelayedExpansion
+	set "SRC_CODEC="
+
 	for /f "usebackq delims=" %%C in (`
 		mediainfo "--Inform=Video;%%Format%%" "%%I"
 	`) do (
-		endlocal & set "SRC_CODEC=%%C"
+		set "SRC_CODEC=%%C"
 	)
+
+	endlocal & set "SRC_CODEC=%SRC_CODEC%"
 
 	if not defined SRC_CODEC (
 		echo ERROR: Could not detect codec. Moving file to _Check.
@@ -94,7 +100,6 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if not exist "_Converted\%%
 		) else (
 			call :SETQUALITY-HEVC
 		)
-		echo %ESC%[101;93m %%I %ESC%[0m
 		if "!REQ_Q!"=="auto" (
 			echo "!FILENAME!" | findstr /c:"(19" >nul || echo "!FILENAME!" | findstr /c:"(20" >nul || (
 				echo %ESC%[91mWARNING: No year found in filename. Falling back to default quality ^(!QUALITY!^).%ESC%[0m
@@ -382,9 +387,9 @@ if exist "%PS_SET_FILE%" del "%PS_SET_FILE%"
 for /f "tokens=1 delims=:" %%A in ('findstr /n "^#PS_EDIT_TAGS_BEGIN#" "%~f0"') do set /a S=%%A
 for /f "tokens=1 delims=:" %%A in ('findstr /n "^#PS_EDIT_TAGS_END#"   "%~f0"') do set /a E=%%A-S
 
-if not defined S exit /b 9
+if not defined S endlocal & exit /b 9
 set /a E=E
-if %E% LEQ 0 exit /b 9
+if %E% LEQ 0 endlocal & exit /b 9
 
 more +%S% "%~f0" | head -n %E% > "%PS_SCRIPT%"
 
@@ -413,16 +418,15 @@ if defined EDIT_ACTIONS (
   mkvpropedit "%FILE%" --edit info --delete title >nul
 )
 if errorlevel 1 (
-    echo mkvpropedit failed
-    call :ENSURE_DIR "_Check"
-    move "%FILE%" "_Check\" >nul
-    endlocal & exit /b 1
+	echo mkvpropedit failed
+	call :ENSURE_DIR "_Check"
+	move "%FILE%" "_Check\" >nul
+	endlocal & exit /b 1
 )
 
 :EDIT_TAGS_CLEANUP
 if exist "%PS_SCRIPT%" del "%PS_SCRIPT%"
 if exist "%PS_SET_FILE%" del "%PS_SET_FILE%"
-
 endlocal & exit /b
 
 :RUN_PROBE
@@ -439,9 +443,9 @@ if exist "%PS_STATUS_FILE%" del "%PS_STATUS_FILE%"
 for /f "tokens=1 delims=:" %%A in ('findstr /n "^#PS_RUN_PROBE_BEGIN#" "%~f0"') do set /a S=%%A
 for /f "tokens=1 delims=:" %%A in ('findstr /n "^#PS_RUN_PROBE_END#"   "%~f0"') do set /a E=%%A-S
 
-if not defined S exit /b 9
+if not defined S endlocal & exit /b 9
 set /a E=E
-if %E% LEQ 0 exit /b 9
+if %E% LEQ 0 endlocal & exit /b 9
 
 more +%S% "%~f0" | head -n %E% > "%PS_SCRIPT%"
 
@@ -463,7 +467,7 @@ if "%RC%"=="0" (
 	endlocal & set "AUTO_CROP=%NVEnc_Crop%" & set "AUTO_RES=%NVEnc_Res%" & set "PROBE_OK=1"
 	exit /b
 )
-exit /b
+endlocal & exit /b 1
 
 :PRINT_TOK
 setlocal EnableDelayedExpansion
@@ -495,8 +499,7 @@ for %%T in (!%TOKVAR%!) do (
 )
 
 echo !LINE!]
-endlocal
-exit /b
+endlocal & exit /b
 
 :USAGE
 setlocal EnableDelayedExpansion
@@ -658,78 +661,78 @@ exit $ExitCode
 
 #PS_EDIT_TAGS_BEGIN#
 param(
-    [string]$VideoFile,
-    [string]$SetFile
+	[string]$VideoFile,
+	[string]$SetFile
 )
 $ErrorActionPreference='Stop'
 $j=& mkvmerge.exe -J "$VideoFile" | ConvertFrom-Json
 $actions=@()
 function IsPureLang($n){
-    if([string]::IsNullOrWhiteSpace($n)){return $false}
-    $n -match '^(?i)(Deutsch|Englisch|German|English|French|Stereo|Surround)$'
+	if([string]::IsNullOrWhiteSpace($n)){return $false}
+	$n -match '^(?i)(Deutsch|Englisch|German|English|French|Stereo|Surround)$'
 }
 function IsFullWord($n){
-    $n -match '^(?i)full$'
+	$n -match '^(?i)full$'
 }
 function NormalizeName($n){
-    if([string]::IsNullOrWhiteSpace($n)){return $null}
-    if($n -match '(?i)sdh'){ return 'SDH' }
-    if($n -match '(?i)forced'){ return 'Forced' }
-    return $null
+	if([string]::IsNullOrWhiteSpace($n)){return $null}
+	if($n -match '(?i)sdh'){ return 'SDH' }
+	if($n -match '(?i)forced'){ return 'Forced' }
+	return $null
 }
 $audioGer=@()
 foreach($t in $j.tracks){
-    if($t.type -eq 'audio' -and $t.properties.language -match '^(?i)(ger|deu)$'){
-        $audioGer+=$t
-    }
+	if($t.type -eq 'audio' -and $t.properties.language -match '^(?i)(ger|deu)$'){
+		$audioGer+=$t
+	}
 }
 $defaultAudioNum=$null
 if($audioGer.Count -gt 0){
-    $defaultAudioNum=$audioGer[0].properties.number
+	$defaultAudioNum=$audioGer[0].properties.number
 }
 foreach($t in $j.tracks){
-    $num=$t.properties.number
-    $type=$t.type
-    $name=$t.properties.track_name
-    if($type -eq 'video'){
-        $actions+="--edit track:$num --set language=und --set flag-default=0 --set flag-forced=0 --delete name"
-        continue
-    }
-    if($type -eq 'audio'){
-        $actions+="--edit track:$num --set flag-forced=0"
-        if($num -eq $defaultAudioNum){
-            $actions+="--edit track:$num --set flag-default=1"
-        }else{
-            $actions+="--edit track:$num --set flag-default=0"
-        }
-        if(-not [string]::IsNullOrWhiteSpace($name)){
-            $normalizedName = NormalizeName $name
-            if($null -ne $normalizedName){
-                $actions+="--edit track:$num --set name=$normalizedName"
-            }elseif(IsPureLang $name){
-                $actions+="--edit track:$num --delete name"
-            }elseif(IsFullWord $name){
-                $actions+="--edit track:$num --delete name"
-            }
-        }
-        continue
-    }
-    if($type -eq 'subtitles'){
-        if($t.properties.forced_track -eq $true){
-            $actions+="--edit track:$num --set flag-default=1"
-        }
-        if(-not [string]::IsNullOrWhiteSpace($name)){
-            $normalizedName = NormalizeName $name
-            if($null -ne $normalizedName){
-                $actions+="--edit track:$num --set name=$normalizedName"
-            }elseif(IsPureLang $name){
-                $actions+="--edit track:$num --delete name"
-            }elseif(IsFullWord $name){
-                $actions+="--edit track:$num --delete name"
-            }
-        }
-        continue
-    }
+	$num=$t.properties.number
+	$type=$t.type
+	$name=$t.properties.track_name
+	if($type -eq 'video'){
+		$actions+="--edit track:$num --set language=und --set flag-default=0 --set flag-forced=0 --delete name"
+		continue
+	}
+	if($type -eq 'audio'){
+		$actions+="--edit track:$num --set flag-forced=0"
+		if($num -eq $defaultAudioNum){
+			$actions+="--edit track:$num --set flag-default=1"
+		}else{
+			$actions+="--edit track:$num --set flag-default=0"
+		}
+		if(-not [string]::IsNullOrWhiteSpace($name)){
+			$normalizedName = NormalizeName $name
+			if($null -ne $normalizedName){
+				$actions+="--edit track:$num --set name=$normalizedName"
+			}elseif(IsPureLang $name){
+				$actions+="--edit track:$num --delete name"
+			}elseif(IsFullWord $name){
+				$actions+="--edit track:$num --delete name"
+			}
+		}
+		continue
+	}
+	if($type -eq 'subtitles'){
+		if($t.properties.forced_track -eq $true){
+			$actions+="--edit track:$num --set flag-default=1"
+		}
+		if(-not [string]::IsNullOrWhiteSpace($name)){
+			$normalizedName = NormalizeName $name
+			if($null -ne $normalizedName){
+				$actions+="--edit track:$num --set name=$normalizedName"
+			}elseif(IsPureLang $name){
+				$actions+="--edit track:$num --delete name"
+			}elseif(IsFullWord $name){
+				$actions+="--edit track:$num --delete name"
+			}
+		}
+		continue
+	}
 }
 "SET EDIT_ACTIONS=$($actions -join ' ')" | Out-File -Encoding ASCII -FilePath $SetFile
 #PS_EDIT_TAGS_END#
