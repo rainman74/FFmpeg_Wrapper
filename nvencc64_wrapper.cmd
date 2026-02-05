@@ -97,9 +97,12 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if not exist "_Converted\%%
 
 		if "%ENCODER%"=="h264" (
 			call :SETQUALITY-H264
-		) else (
+		) else if "%ENCODER%"=="hevc" (
+			call :SETQUALITY-HEVC
+		) else if "%ENCODER%"=="av1" (
 			call :SETQUALITY-HEVC
 		)
+
 		if "!REQ_Q!"=="auto" (
 			echo "!FILENAME!" | findstr /c:"(19" >nul || echo "!FILENAME!" | findstr /c:"(20" >nul || (
 				echo %ESC%[91mWARNING: No year found in filename. Falling back to default quality ^(!QUALITY!^).%ESC%[0m
@@ -169,7 +172,10 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if not exist "_Converted\%%
 				if "%EDIT_TAGS%"=="1" call :EDIT_TAGS "_Converted\%%~nI.mkv"
 			)
 
-			for /L %%X in (5,-1,1) do (echo Waiting for %%X seconds... & sleep 1s)
+			for /L %%X in (5,-1,1) do (
+				echo Waiting for %%X seconds...
+				timeout /t 1 >nul
+			)
 			echo.
 		)
 	)
@@ -473,29 +479,40 @@ endlocal & exit /b 1
 setlocal EnableDelayedExpansion
 
 set "LABEL=%~1"
-set "TOKVAR=%~2"
-set "PAD=10"
-set "SPACES=          "
-set "PREFIX=%LABEL%!SPACES!"
-set "PREFIX=!PREFIX:~0,%PAD%!"
-set "INDENT=!SPACES:~0,%PAD%!"
-set "LINE=!PREFIX!= ["
-set "FIRST=1"
-set WRAP=100
+set "INFO=%~2"
+set "TOKVAR=%~3"
+set LABEL_PAD=10
+set INFO_PAD=12
+set PAD=22
+set "SPACES=                              "
+
+set "L=%LABEL%%SPACES%"
+set "L=!L:~0,%LABEL_PAD%!"
+
+set "I=%INFO%%SPACES%"
+set "I=!I:~0,%INFO_PAD%!"
+
+set "LEFT=!L!!I!"
+set /a PAD1=%PAD%-1
+set "INDENT=!SPACES:~0,%PAD1%!"
+
+set "LINE=!LEFT!["
+set FIRST=1
+set WRAP=120
 
 for %%T in (!%TOKVAR%!) do (
-	if "!FIRST!"=="1" (
-		set "FIRST=0"
-		set "LINE=!LINE!%%T"
-	) else (
-		set "TEST=!LINE!|%%T]"
-		if not "!TEST:~0,%WRAP%!"=="!TEST!" (
-			echo !LINE!^|
-			set "LINE=!INDENT!  %%T"
-		) else (
-			set "LINE=!LINE!^|%%T"
-		)
-	)
+    if "!FIRST!"=="1" (
+        set FIRST=0
+        set "LINE=!LINE!%%T"
+    ) else (
+        set "TEST=!LINE!|%%T]"
+        if not "!TEST:~0,%WRAP%!"=="!TEST!" (
+            echo !LINE!^|
+            set "LINE=!INDENT! %%T"
+        ) else (
+            set "LINE=!LINE!^|%%T"
+        )
+    )
 )
 
 echo !LINE!]
@@ -504,15 +521,16 @@ endlocal & exit /b
 :USAGE
 setlocal EnableDelayedExpansion
 cls
-echo Usage: %~n0 ^<encoder(hevc)^> ^<audio(ac3)^> ^<quality(28)^> ^<crop^> ^<filter^> ^<mode^> ^<decoder(avhw)^>
+echo Usage: nvencc64_wrapper ^<encoder^> [audio=ac3] [quality=28] [crop=copy] [filter=copy] [mode=copy] [decoder=avhw]
 echo.
-call :PRINT_TOK encoder TOK_ENCODER
-call :PRINT_TOK audio   TOK_AUDIO
-call :PRINT_TOK quality TOK_QUALITY
-call :PRINT_TOK crop    TOK_CROP
-call :PRINT_TOK filter  TOK_FILTER
-call :PRINT_TOK mode    TOK_MODE
-call :PRINT_TOK decoder TOK_DECODER
+call :PRINT_TOK "encoder" "(required)"  TOK_ENCODER
+call :PRINT_TOK "audio"   "(def=ac3)"   TOK_AUDIO
+call :PRINT_TOK "quality" "(def=def)"   TOK_QUALITY
+call :PRINT_TOK "crop"    "(def=copy)"  TOK_CROP
+call :PRINT_TOK "filter"  "(def=copy)"  TOK_FILTER
+call :PRINT_TOK "mode"    "(def=copy)"  TOK_MODE
+call :PRINT_TOK "decoder" "(def=avhw)"  TOK_DECODER
+
 echo.
 echo Example: %~n0 ^| encoder ^| audio ^| quality ^| crop ^| filter ^| mode ^| decoder ^|
 echo Example: %~n0   hevc      ac3
