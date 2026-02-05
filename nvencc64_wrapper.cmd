@@ -1,7 +1,7 @@
 @echo off & setlocal enabledelayedexpansion
 
 :INIT
-call setesc
+call SETESC
 if '%1'=='-h' goto USAGE
 if '%1'=='' goto USAGE
 
@@ -482,6 +482,10 @@ echo Example: %~n0   hevc      copy    hq        1080   copy
 echo Example: %~n0   hevc      copy    def       copy   copy     copy   sw
 echo.
 goto :END
+
+:SETESC
+for /f "delims=" %%A in ('echo prompt $E^| cmd') do set "ESC=%%A"
+exit /b
 
 :NOP
 exit /b
