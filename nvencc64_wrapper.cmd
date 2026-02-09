@@ -64,8 +64,8 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if exist "%%I" if not exist
 		set "SKIP_FILE=1"
 	) else (
 		if /i "!SRC_CODEC!"=="HEVC" if /i "%ENCODER%"=="hevc" set "TARGET_DIR=_Converted"
-		if /i "!SRC_CODEC!"=="AVC"  if /i "%ENCODER%"=="h264" set "TARGET_DIR=_Converted"
-		if /i "!SRC_CODEC!"=="AV1"  if /i "%ENCODER%"=="av1"  set "TARGET_DIR=_Converted"
+		if /i "!SRC_CODEC!"=="AVC" if /i "%ENCODER%"=="h264" set "TARGET_DIR=_Converted"
+		if /i "!SRC_CODEC!"=="AV1" if /i "%ENCODER%"=="av1"  set "TARGET_DIR=_Converted"
 	)
 
 	if defined TARGET_DIR (
@@ -96,7 +96,7 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if exist "%%I" if not exist
 				echo %ESC%[91mWARNING: No year found in filename. Falling back to default quality ^(!QUALITY!^).%ESC%[0m
 			)
 		)
-		
+
 		if /i "!CROP_MODE!"=="AUTO" (
 			set "PROBE_OK=0"
 			%DBG% RUN_PROBE is being executed
@@ -118,7 +118,7 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if exist "%%I" if not exist
 					for /f "tokens=1,3 delims=:" %%A in ("!AUTO_CROP!") do (
 						set "CROP_L=%%A"
 						set "CROP_R=%%C"
-					)	
+					)
 				)
 				%DBG% AUTO-CROP final result: !CROP!
 			)
@@ -265,7 +265,7 @@ if "%4"=="1764"				(set "CROP=--output-res 1764x1080 --crop 78,0,78,0")
 if "%4"=="1780"				(set "CROP=--output-res 1780x1080 --crop 70,0,70,0")
 if "%4"=="1788"				(set "CROP=--output-res 1788x1080 --crop 66,0,66,0")
 if "%4"=="1800"				(set "CROP=--output-res 1800x1080 --crop 60,0,60,0")
-if "%4"=="c1"				(set "CROP=")
+if "%4"=="c1"				(set "CROP=--crop 246,6,246,6 --output-res 1440x1080")
 if "%4"=="c2"				(set "CROP=")
 if "%4"=="c3"				(set "CROP=")
 if "%4"=="c4"				(set "CROP=")
@@ -458,11 +458,14 @@ if exist "%PS_SCRIPT%" del "%PS_SCRIPT%"
 if exist "%PS_SET_FILE%" del "%PS_SET_FILE%"
 if exist "%PS_STATUS_FILE%" del "%PS_STATUS_FILE%"
 
-if "%RC%"=="0" (
-	endlocal & set "AUTO_CROP=%NVEnc_Crop%" & set "AUTO_RES=%NVEnc_Res%" & set "PROBE_OK=1"
-	exit /b
-)
+if "%RC%"=="0" goto :PROBE_OK
+if "%RC%"=="8" if defined NVEnc_Crop goto :PROBE_OK
+
 endlocal & exit /b 1
+
+:PROBE_OK
+endlocal & set "AUTO_CROP=%NVEnc_Crop%" & set "AUTO_RES=%NVEnc_Res%" & set "PROBE_OK=1"
+exit /b 0
 
 :PRINT_TOK
 setlocal EnableDelayedExpansion
@@ -571,6 +574,7 @@ param(
 	[string]$StatusFile
 )
 $ExitCode = 0
+$RejectReason = $null
 function Write-Status ($Message) {
 	$Timestamp = Get-Date -Format "HH:mm:ss"
 	Add-Content -Path $StatusFile -Value "[$Timestamp] $Message"
@@ -614,6 +618,13 @@ if ($ExitCode -eq 0) {
 	if ($CleanRes.Count -lt 2) { $ExitCode = 2 }
 	$OrigWidth	= [int]$CleanRes[0]
 	$OrigHeight = [int]$CleanRes[1]
+	if ($OrigWidth -lt 1280 -or $OrigHeight -lt 696) {
+		$RejectReason = "source too small (${OrigWidth}x${OrigHeight})"
+	}
+	if ($RejectReason) {
+		Write-Status "REJECTED: $RejectReason"
+		exit 8
+	}
 }
 if ($ExitCode -eq 0) {
 	foreach ($Time in $ProbeTimes) {
@@ -635,7 +646,7 @@ if ($ExitCode -eq 0) {
 	$CropT = $Y; $CropB=$OrigHeight-$Y-$H
 	$TotalV = $CropT + $CropB
 	$TotalH = $CropL + $CropR
-	if ($TotalV -le 2 -and $TotalH -le 2) {
+	if ($TotalV -le 4 -and $TotalH -le 10) {
 		"SET NVEnc_Crop=0:0:0:0" | Out-File -Encoding ASCII $SetFile
 		"SET NVEnc_Res=${OrigWidth}x${OrigHeight}" | Out-File -Encoding ASCII $SetFile -Append
 		exit 0
@@ -649,8 +660,7 @@ if ($ExitCode -eq 0) {
 		"SET NVEnc_Res=${BestW}x${OrigHeight}" | Out-File -Encoding ASCII $SetFile -Append
 		exit 0
 	}
-	$RejectReason = $null
-	if ([math]::Abs($CropT - $CropB) -gt 2) {
+	if ([math]::Abs($CropT - $CropB) -gt 4) {
 		$RejectReason = "vertical asymmetry (T=$CropT B=$CropB)"
 	}
 	elseif ( ($CropT -eq 0 -and $CropB -gt 0) -or ($CropB -eq 0 -and $CropT -gt 0) ) {
