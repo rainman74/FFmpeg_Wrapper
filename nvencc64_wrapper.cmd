@@ -156,7 +156,7 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if exist "%%I" if not exist
 			%DBG% FILTER_HAS_RESIZE = "!FILTER_HAS_RESIZE!"
 			%DBG% RESIZE_PARAM      = "!RESIZE_PARAM!"
 
-			nvencc64.exe --thread-priority all=lowest --input-thread 1 --output-buf 16 !DECODER_PARAM! -i "%%I" -c %ENCODER% --profile %PROFILE% --tier high --level auto --qvbr !QUALITY! !PRESET! --aq-temporal --aq-strength 0 !TUNING! --bref-mode middle !RESIZE_PARAM! !CROP! !FILTER! !MODE! !AUDIO! --sub-copy --chapter-copy -o "_Converted\%%~nI.mkv"
+			nvencc64.exe --thread-priority all=lowest --input-thread 1 --output-buf 16 !DECODER_PARAM! -i "%%I" -c %ENCODER% --profile %PROFILE% --tier high --level auto --qvbr !QUALITY! !PRESET! --aq --aq-strength 10 --lookahead 24 !TUNING! !B_REF! --bref-mode middle !RESIZE_PARAM! !CROP! !FILTER! !MODE! !AUDIO! --sub-copy --chapter-copy -o "_Converted\%%~nI.mkv"
 
 			if exist "_Converted\%%~nI.mkv" (
 				if "%EDIT_TAGS%"=="1" call :EDIT_TAGS "_Converted\%%~nI.mkv"
@@ -181,13 +181,14 @@ if "!REQ_Q!"=="auto" (
 	echo "!FILENAME!" | findstr /c:"(20" >nul && set "ACTUAL_Q=def"
 	if "!ACTUAL_Q!"=="none" set "ACTUAL_Q=def"
 )
-set "PRESET=--preset quality"
+set "PRESET=--preset p7"
 set "TUNING=--tune hq"
-if "!ACTUAL_Q!"=="uhq" 		(set "QUALITY=24" & set "TUNING=--tune uhq")
+set "B_REF=--bframes 3 --ref 4"
+if "!ACTUAL_Q!"=="uhq" 		(set "QUALITY=24" & set "TUNING=--tune uhq" & set "B_REF=--bframes 4 --ref 4")
 if "!ACTUAL_Q!"=="hq"  		(set "QUALITY=26")
 if "!ACTUAL_Q!"=="def" 		(set "QUALITY=28")
 if "!ACTUAL_Q!"=="lq"  		(set "QUALITY=30")
-if "!ACTUAL_Q!"=="ulq" 		(set "QUALITY=32" & set "TUNING=--tune undef" & set "PRESET=--preset performance")
+if "!ACTUAL_Q!"=="ulq" 		(set "QUALITY=32" & set "TUNING=--tune undef" & set "PRESET=--preset p1")
 exit /b
 
 :SETQUALITY-H264
@@ -198,12 +199,14 @@ if "!REQ_Q!"=="auto" (
 	echo "!FILENAME!" | findstr /c:"(20" >nul && set "ACTUAL_Q=def"
 	if "!ACTUAL_Q!"=="none" set "ACTUAL_Q=def"
 )
-set "PRESET=--preset quality" & set "TUNING=--tune hq"
-if "!ACTUAL_Q!"=="uhq" 		(set "QUALITY=20" & set "TUNING=--tune uhq")
+set "PRESET=--preset p7"
+set "TUNING=--tune hq"
+set "B_REF=--bframes 3 --ref 4"
+if "!ACTUAL_Q!"=="uhq" 		(set "QUALITY=20")
 if "!ACTUAL_Q!"=="hq"  		(set "QUALITY=22")
 if "!ACTUAL_Q!"=="def" 		(set "QUALITY=24")
 if "!ACTUAL_Q!"=="lq"  		(set "QUALITY=26")
-if "!ACTUAL_Q!"=="ulq" 		(set "QUALITY=28" & set "TUNING=--tune undef" & set "PRESET=--preset performance")
+if "!ACTUAL_Q!"=="ulq" 		(set "QUALITY=28" & set "TUNING=--tune undef" & set "PRESET=--preset p1")
 exit /b
 
 :SETENCODER
