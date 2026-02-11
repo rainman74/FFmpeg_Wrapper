@@ -73,8 +73,10 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if exist "%%I" if not exist
 	set "AUTO_RES_H="
 	set "SRC_CODEC="
 
-	for /f "usebackq delims=" %%C in (`mediainfo "--Inform=Video;%%Format%%" "%%I"`) do set "SRC_CODEC=%%C"
-	
+	for /f "usebackq delims=" %%C in (`mediainfo "--Inform=Video;%%Format%%" "%%I"`) do (
+		set "SRC_CODEC=%%C"
+	)
+
 	if not defined SRC_CODEC (
 		echo ERROR: Could not detect codec. Moving file to _Check.
 		call :ENSURE_DIR "_Check"
@@ -89,7 +91,7 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if exist "%%I" if not exist
 	if defined TARGET_DIR (
 		call :ENSURE_DIR "!TARGET_DIR!"
 		set "MOVED_FILE=!TARGET_DIR!\%%~nxI"
-		echo %ESC%[91mWARNING: Source already encoded as !SRC_CODEC!. Moving to !TARGET_DIR!.%ESC%[0m
+		echo %ESC%[91mWARNING: Source already encoded as !SRC_CODEC!. Moving file to !TARGET_DIR!.%ESC%[0m
 		move "%%I" "!MOVED_FILE!" >nul
 		set "SKIP_FILE=1"
 		if "%EDIT_TAGS%"=="1" call :EDIT_TAGS "!MOVED_FILE!"
@@ -103,7 +105,13 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if exist "%%I" if not exist
 
 		call :SETCROP x x x !CROP_PARAM!
 
-		if "%ENCODER%"=="h264_nvenc" (call :SETQUALITY-H264) else (call :SETQUALITY-HEVC)
+		if "%ENCODER%"=="h264_nvenc" (
+			call :SETQUALITY-H264
+		) else if "%ENCODER%"=="hevc_nvenc" (
+			call :SETQUALITY-HEVC
+		) else if "%ENCODER%"=="av1_nvenc" (
+			call :SETQUALITY-HEVC
+		)
 
 		if "!REQ_Q!"=="auto" (
 			echo "!FILENAME!" | findstr /c:"(19" >nul || echo "!FILENAME!" | findstr /c:"(20" >nul || (
@@ -136,6 +144,7 @@ if /i "!CROP_MODE!"=="AUTO" (
 					)
 					set "RESIZE_REQUIRED=1"
 				)
+				%DBG% AUTO-CROP final result: !CROP!
 			)
 		) else if defined CROP_VAL (
 			echo(!CROP_VAL! | findstr /i /c:"crop=" /c:"scale_cuda" >nul && set "RESIZE_REQUIRED=1"
@@ -377,6 +386,7 @@ exit /b
 
 :VALIDATE-PARAMS
 set "PARAM_ERR=0"
+
 call :VALIDATE_ONE "%1" TOK_ENCODER encoder 1
 call :VALIDATE_ONE "%2" TOK_AUDIO   audio   2
 call :VALIDATE_ONE "%3" TOK_QUALITY quality 3
@@ -384,6 +394,7 @@ call :VALIDATE_ONE "%4" TOK_CROP    crop    4
 call :VALIDATE_ONE "%5" TOK_FILTER  filter  5
 call :VALIDATE_ONE "%6" TOK_MODE    mode    6
 call :VALIDATE_ONE "%7" TOK_DECODER decoder 7
+
 exit /b
 
 :VALIDATE_ONE
@@ -449,6 +460,7 @@ if errorlevel 1 (
 	endlocal & exit /b 1
 )
 
+:EDIT_TAGS_CLEANUP
 if exist "%PS_SCRIPT%" del "%PS_SCRIPT%"
 if exist "%PS_SET_FILE%" del "%PS_SET_FILE%"
 endlocal & exit /b
@@ -494,6 +506,7 @@ exit /b 0
 
 :PRINT_TOK
 setlocal EnableDelayedExpansion
+
 set "LABEL=%~1"
 set "INFO=%~2"
 set "TOKVAR=%~3"
@@ -582,7 +595,8 @@ exit /b
 
 :DEBUG
 setlocal EnableDelayedExpansion
-echo [DEBUG] %*
+set "DBG_MSG=%*"
+echo [DEBUG] !DBG_MSG!
 endlocal & exit /b
 
 :END
