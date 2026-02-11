@@ -1,6 +1,6 @@
 # FFmpeg_Wrapper
 
-Since FFmpeg encoder unfortunately does not have an automatic cropping function, I have extended my wrapper and added this function.
+Since FFmpeg encoder unfortunately does not have an automatic cropping function, I have extended my [NVEncC64 Wrapper](https://github.com/rainman74/NVEncC64_Wrapper) for use with FFmpeg.
 
 ## Simply calling the wrapper without parameters shows the usage:
 ```
