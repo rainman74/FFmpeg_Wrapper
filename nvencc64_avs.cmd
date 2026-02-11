@@ -9,7 +9,7 @@ echo 2 = UPSCALE, encoded to FFV1/AC3 for later Topaz upscale
 echo 3 = STANDARD, encoded to HEVC/AC3
 echo.
 
-set /p CHOICE="Auswahl: "
+set /p CHOICE="Selection: "
 
 if "%CHOICE%"=="2" (
 	set PROFILE=UPSCALE
@@ -19,7 +19,7 @@ if "%CHOICE%"=="2" (
 	set PROFILE=ARCHIVE
 )
 
-echo %ESC%[104;97m PROFIL: !PROFILE! %ESC%[0m
+echo %ESC%[104;97m PROFILE: !PROFILE! %ESC%[0m
 echo.
 
 :MAIN
@@ -70,10 +70,11 @@ for /f "tokens=*" %%C in ('ffprobe -hide_banner -v error -select_streams a:0 -sh
 )
 set "AUDIO_CODECS=-c:a:0 ac3 -b:a:0 !BITRATE_AVS!"
 
+set /a "IDX_SOURCE=0"
 set /a "IDX_TARGET=1"
-set "SKIP_FIRST="
-for /f "tokens=1,2 delims=," %%A in ('ffprobe -hide_banner -v error -select_streams a -show_entries stream^=codec_name^,channels -of default^=noprint_wrappers^=1:nokey^=1 "!SOURCE_FILE!"') do (
-	if defined SKIP_FIRST (
+
+for /f "tokens=1,2 delims=," %%A in ('ffprobe -hide_banner -v error -select_streams a -show_entries stream^=codec_name^,channels -of csv^=p^=0 "!SOURCE_FILE!"') do (
+	if !IDX_SOURCE! GTR 0 (
 		set "CUR_CODEC=%%A"
 		set "CUR_CHANNELS=%%B"
 		if !CUR_CHANNELS! LEQ 2 ( set "BITRATE=192k" ) else ( set "BITRATE=384k" )
@@ -84,7 +85,7 @@ for /f "tokens=1,2 delims=," %%A in ('ffprobe -hide_banner -v error -select_stre
 		)
 		set /a "IDX_TARGET+=1"
 	)
-	set "SKIP_FIRST=1"
+	set /a "IDX_SOURCE+=1"
 )
 
 %ENCODER_CMD% %INPUT_ARGS% -i "%INPUT_FILE%" -i "!SOURCE_FILE!" ^
@@ -94,6 +95,8 @@ for /f "tokens=1,2 delims=," %%A in ('ffprobe -hide_banner -v error -select_stre
 -disposition:a:0 default -disposition:a:1 0 ^
 !AUDIO_CODECS! %ENCODER_ARGS% "%OUTPUT_FILE%"
 
+set "IDX_SOURCE="
+set "IDX_TARGET="
 goto :EOF
 
 :SETESC
