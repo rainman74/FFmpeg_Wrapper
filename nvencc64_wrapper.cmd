@@ -236,7 +236,7 @@ if "%4"=="auto" (
 	set "CROP_MODE=AUTO"
 	exit /b
 )
-if "%4"=="copy"				(set "CROP=")
+if "%4"=="none"				(set "CROP=")
 if "%4"=="696"				(set "CROP=--crop 0,192,0,192")
 if "%4"=="768"				(set "CROP=--crop 0,156,0,156")
 if "%4"=="800"				(set "CROP=--crop 0,140,0,140")
@@ -280,7 +280,7 @@ exit /b
 
 :SETFILTER
 set "FILTER="
-if "%5"=="copy"			 	(set "FILTER=")
+if "%5"=="none"			 	(set "FILTER=")
 if "%5"=="edgelevel"	 	(set "FILTER=--vpp-edgelevel")
 if "%5"=="smooth"		 	(set "FILTER=--vpp-smooth")
 if "%5"=="smooth31"		 	(set "FILTER=--vpp-smooth quality=6,qp=31,prec=fp32")
@@ -312,7 +312,7 @@ exit /b
 
 :SETMODE
 set "MODE="
-if "%6"=="copy"				(set "MODE=")
+if "%6"=="none"				(set "MODE=")
 if "%6"=="deint"			(set "MODE=--interlace auto --vpp-deinterlace adaptive")
 if "%6"=="yadif"			(set "MODE=--interlace auto --vpp-yadif mode=auto")
 if "%6"=="yadifbob"			(set "MODE=--interlace auto --vpp-yadif mode=bob --vpp-select-every 2")
@@ -502,12 +502,12 @@ for %%T in (!%TOKVAR%!) do (
 		set FIRST=0
 		set "LINE=!LINE!%%T"
 	) else (
-		set "TEST=!LINE!|%%T]"
+		set "TEST=!LINE!|%%T"
 		if not "!TEST:~0,%WRAP%!"=="!TEST!" (
-			echo !LINE!^|
-			set "LINE=!INDENT! %%T"
+			echo !LINE!]
+			set "LINE=!INDENT! [%%T"
 		) else (
-			set "LINE=!LINE!^|%%T"
+			set "LINE=!LINE!|%%T"
 		)
 	)
 )
@@ -523,33 +523,34 @@ echo.
 call :PRINT_TOK "encoder" "(required)"  TOK_ENCODER
 call :PRINT_TOK "audio"   "(def=ac3)"   TOK_AUDIO
 call :PRINT_TOK "quality" "(def=def)"   TOK_QUALITY
-call :PRINT_TOK "crop"    "(def=copy)"  TOK_CROP
-call :PRINT_TOK "filter"  "(def=copy)"  TOK_FILTER
-call :PRINT_TOK "mode"    "(def=copy)"  TOK_MODE
+call :PRINT_TOK "crop"    "(def=none)"  TOK_CROP
+call :PRINT_TOK "filter"  "(def=none)"  TOK_FILTER
+call :PRINT_TOK "mode"    "(def=none)"  TOK_MODE
 call :PRINT_TOK "decoder" "(def=avhw)"  TOK_DECODER
-
 echo.
-echo Example: %~n0 ^| encoder ^| audio ^| quality ^| crop ^| filter ^| mode ^| decoder ^|
-echo Example: %~n0   hevc      ac3
-echo Example: %~n0   hevc      ac3     auto      auto
-echo Example: %~n0   hevc      copy    auto      1080   vsr
-echo Example: %~n0   hevc      copy    hq        1080   copy
-echo Example: %~n0   hevc      copy    def       copy   copy     copy   sw
+echo Example: %~n0 ^| %UL%encoder%NO% ^| %UL%audio%NO%   ^| %UL%quality%NO% ^| %UL%crop%NO%    ^| %UL%filter%NO%  ^| %UL%mode%NO%    ^| %UL%decoder%NO% ^|
+echo Example: %~n0 ^| hevc    ^| ac3     ^|         ^|         ^|         ^|         ^|         ^|
+echo Example: %~n0 ^| hevc    ^| ac3     ^| auto    ^| auto    ^|         ^|         ^|         ^|
+echo Example: %~n0 ^| hevc    ^| copy    ^| auto    ^| 1080    ^| vsr     ^|         ^|         ^|
+echo Example: %~n0 ^| hevc    ^| copy    ^| hq      ^| 1080    ^| gauss   ^|         ^|         ^|
+echo Example: %~n0 ^| hevc    ^| copy    ^| def     ^| none    ^| none    ^| none    ^| sw      ^|
 echo.
 endlocal
 goto :END
 
 :SETESC
 for /f "delims=" %%A in ('echo prompt $E^| cmd') do set "ESC=%%A"
+set "UL=%ESC%[4m"
+set "NO=%ESC%[24m"
 exit /b
 
 :SETTOKEN
 set "TOK_ENCODER=def hevc he10 h264 av1"
 set "TOK_AUDIO=copy copy1 copy2 copy12 copy23 ac3 aac eac3"
 set "TOK_QUALITY=def auto hq uhq lq ulq"
-set "TOK_CROP=copy auto c1 c2 c3 c4 c5 c6 696 768 800 804 808 812 816 872 960 1012 1024 1036 1036p 1040 720 720p 720f 1080 1080p 1080f 2160 2160p 2160f 1440 1348 1420 1480 1500 1792 1764 1780 1788 1800"
-set "TOK_FILTER=copy f1 f2 f3 f4 f5 f6 edgelevel smooth smooth31 smooth63 nlmeans gauss gauss5 sharp ss denoise denoisehq artifact artifacthq superres superreshq vsr vsrdenoise vsrdenoisehq vsrartifact vsrartifacthq log"
-set "TOK_MODE=copy deint yadif yadifbob double 23fps 25fps 30fps 60fps 29fps 59fps brighter darker vintage linear tweak HDRtoSDR HDRtoSDRR HDRtoSDRM HDRtoSDRH dv dolby-vision"
+set "TOK_CROP=none auto c1 c2 c3 c4 c5 c6 696 768 800 804 808 812 816 872 960 1012 1024 1036 1036p 1040 720 720p 720f 1080 1080p 1080f 2160 2160p 2160f 1440 1348 1420 1480 1500 1792 1764 1780 1788 1800"
+set "TOK_FILTER=none f1 f2 f3 f4 f5 f6 edgelevel smooth smooth31 smooth63 nlmeans gauss gauss5 sharp ss denoise denoisehq artifact artifacthq superres superreshq vsr vsrdenoise vsrdenoisehq vsrartifact vsrartifacthq log"
+set "TOK_MODE=none deint yadif yadifbob double 23fps 25fps 30fps 60fps 29fps 59fps brighter darker vintage linear tweak HDRtoSDR HDRtoSDRR HDRtoSDRM HDRtoSDRH dv dolby-vision"
 set "TOK_DECODER=def hw sw auto"
 exit /b
 
