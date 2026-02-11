@@ -113,7 +113,7 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if exist "%%I" if not exist
 
 		set "CROP_VAL="
 
-		if /i "!CROP_MODE!"=="AUTO" (
+if /i "!CROP_MODE!"=="AUTO" (
 			set "PROBE_OK=0"
 			%DBG% RUN_PROBE is being executed
 			call :RUN_PROBE "%%I"
@@ -126,6 +126,7 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if exist "%%I" if not exist
 			) else (
 				if "!AUTO_CROP!"=="0:0:0:0" (
 					%DBG% AUTO-CROP: no crop detected, passthrough
+					set "CROP_VAL="
 					set "RESIZE_REQUIRED=0"
 				) else (
 					for /f "tokens=1,2,3,4 delims=:" %%a in ("!AUTO_CROP!") do (
@@ -140,48 +141,35 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if exist "%%I" if not exist
 			echo(!CROP_VAL! | findstr /i /c:"crop=" /c:"scale_cuda" >nul && set "RESIZE_REQUIRED=1"
 		)
 
-		for /f "tokens=3,4 delims=:" %%a in ("!CROP_VAL!") do (
-			set "crop_x=%%a"
-			set "crop_y=%%b"
+		set "crop_x=0" & set "crop_y=0"
+		if defined CROP_VAL (
+			for /f "tokens=3,4 delims=:" %%a in ("!CROP_VAL!") do (
+				set "crop_x=%%a"
+				set "crop_y=%%b"
+			)
 		)
 		%DBG% RUN_PROBE: RC=!PROBE_OK!
 		%DBG% RUN_PROBE: FFmpeg_Crop=!crop_x!:!crop_y!
 		%DBG% RUN_PROBE: FFmpeg_Res=!crop_w!:!crop_h!
 
-		if "!FILTER_HAS_RESIZE!"=="0" (
-			if defined CROP_VAL (
-				echo(!CROP_VAL! | findstr /i /c:"scale_cuda" >nul && (
-					set "FILTER_HAS_RESIZE=1"
-					set "FILTER_HAS_SCALE_CUDA=1"
-				)
-			)
-		)
-
-		set "RESIZE_PARAM="
-		if "!RESIZE_REQUIRED!"=="1" if "!FILTER_HAS_RESIZE!"=="0" (
-			if /i "!CROP_MODE!"=="AUTO" if defined AUTO_RES_W if defined AUTO_RES_H (
-				set "RESIZE_PARAM=scale_cuda=w=!AUTO_RES_W!:h=!AUTO_RES_H!:interp_algo=lanczos:format=nv12"
-			) else (
-				set "RESIZE_PARAM=scale_cuda=w=1920:h=-2:interp_algo=lanczos:format=nv12"
-			)
-			if "!FILTER_HAS_HWUPLOAD!"=="0" set "RESIZE_PARAM=hwupload_cuda,!RESIZE_PARAM!"
-			set "RESIZE_PARAM=!RESIZE_PARAM!,hwdownload,format=nv12"
-		)
-
 		set "VF_CHAIN="
-		if defined CROP_VAL     set "VF_CHAIN=!CROP_VAL!"
-		if defined FILTER       if defined VF_CHAIN (set "VF_CHAIN=!VF_CHAIN!,!FILTER!") else set "VF_CHAIN=!FILTER!"
-		if defined MODE         if defined VF_CHAIN (set "VF_CHAIN=!VF_CHAIN!,!MODE!") else set "VF_CHAIN=!MODE!"
+		if defined CROP_VAL set "VF_CHAIN=!CROP_VAL!"
+		if defined FILTER (
+			if defined VF_CHAIN (set "VF_CHAIN=!VF_CHAIN!,!FILTER!") else (set "VF_CHAIN=!FILTER!")
+		)
+		if defined MODE (
+			if defined VF_CHAIN (set "VF_CHAIN=!VF_CHAIN!,!MODE!") else (set "VF_CHAIN=!MODE!")
+		)
 
 		set "VF_PARAM="
 		if defined VF_CHAIN (
 			if defined RESIZE_PARAM (
-				set "VF_PARAM=-vf "!VF_CHAIN!,!RESIZE_PARAM!""
+				set "VF_PARAM=-vf !VF_CHAIN!,!RESIZE_PARAM!"
 			) else (
-				set "VF_PARAM=-vf "!VF_CHAIN!""
+				set "VF_PARAM=-vf !VF_CHAIN!"
 			)
 		) else if defined RESIZE_PARAM (
-			set "VF_PARAM=-vf "!RESIZE_PARAM!""
+			set "VF_PARAM=-vf !RESIZE_PARAM!"
 		)
 
 		setlocal DisableDelayedExpansion
@@ -196,7 +184,7 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if exist "%%I" if not exist
 		%DBG%   AUDIO  = "!AUDIO!"
 
 		if not defined SKIP_FILE (
-			ffmpeg %FF_FLAGS% !DECODER_PARAM! -i "%%I" -map 0 -c:v %ENCODER% -profile:v %PROFILE% -level auto -rc vbr -cq:v !QUALITY! !PRESET! -multipass fullres -spatial_aq 1 -temporal_aq 1 -aq-strength 10 -rc-lookahead 24 !TUNING! !B_REF! !VF_PARAM! !AUDIO! -c:s copy -map_metadata 0 -map_chapters 0 "_Converted\%%~nI.mkv"
+			echo ffmpeg %FF_FLAGS% !DECODER_PARAM! -i "%%I" -map 0 -c:v %ENCODER% -profile:v %PROFILE% -level auto -rc vbr -cq:v !QUALITY! !PRESET! -multipass fullres -spatial_aq 1 -temporal_aq 1 -aq-strength 10 -rc-lookahead 24 !TUNING! !B_REF! !VF_PARAM! !AUDIO! -c:s copy -map_metadata 0 -map_chapters 0 "_Converted\%%~nI.mkv"
 
 			if exist "_Converted\%%~nI.mkv" (
 				if "%EDIT_TAGS%"=="1" call :EDIT_TAGS "_Converted\%%~nI.mkv"
@@ -222,13 +210,13 @@ if "!REQ_Q!"=="auto" (
 	if "!ACTUAL_Q!"=="none" set "ACTUAL_Q=def"
 )
 set "PRESET=-preset p7"
-set "TUNING=-tune film"
+set "TUNING=-tune hq"
 set "B_REF=-bf 3 -refs 4 -b_ref_mode middle"
-if "!ACTUAL_Q!"=="uhq"		(set "QUALITY=22" & set "TUNING=-tune grain" & set "B_REF=-bf 4 -refs 4 -b_ref_mode middle")
+if "!ACTUAL_Q!"=="uhq"		(set "QUALITY=22" & set "TUNING=-tune hq" & set "B_REF=-bf 4 -refs 4 -b_ref_mode middle")
 if "!ACTUAL_Q!"=="hq"		(set "QUALITY=24")
 if "!ACTUAL_Q!"=="def"		(set "QUALITY=26")
 if "!ACTUAL_Q!"=="lq"		(set "QUALITY=28")
-if "!ACTUAL_Q!"=="ulq"		(set "QUALITY=30" & set "TUNING=-tune zerolatency" & set "PRESET=-preset p1" & set "B_REF=-bf 3 -refs 4 -b_ref_mode disabled")
+if "!ACTUAL_Q!"=="ulq"		(set "QUALITY=30" & set "TUNING=-tune ll" & set "PRESET=-preset p1" & set "B_REF=-bf 3 -refs 4 -b_ref_mode disabled")
 exit /b
 
 :SETQUALITY-H264
@@ -242,11 +230,11 @@ if "!REQ_Q!"=="auto" (
 set "PRESET=-preset p7"
 set "TUNING=-tune film"
 set "B_REF=-bf 3 -refs 4"
-if "!ACTUAL_Q!"=="uhq"		(set "QUALITY=20" & set "TUNING=-tune grain" & set "B_REF=-bf 4 -refs 4")
+if "!ACTUAL_Q!"=="uhq"		(set "QUALITY=20" & set "TUNING=-tune hq" & set "B_REF=-bf 4 -refs 4")
 if "!ACTUAL_Q!"=="hq"		(set "QUALITY=22")
 if "!ACTUAL_Q!"=="def"		(set "QUALITY=24")
 if "!ACTUAL_Q!"=="lq"		(set "QUALITY=26")
-if "!ACTUAL_Q!"=="ulq"		(set "QUALITY=28" & set "TUNING=-tune zerolatency" & set "PRESET=-preset p1" & set "B_REF=-bf 3 -refs 4")
+if "!ACTUAL_Q!"=="ulq"		(set "QUALITY=28" & set "TUNING=-tune ll" & set "PRESET=-preset p1" & set "B_REF=-bf 3 -refs 4")
 exit /b
 
 :SETENCODER
@@ -294,6 +282,15 @@ if "%4"=="1012"				(set "CROP_VAL=crop=1920:1012:0:34")
 if "%4"=="1024"				(set "CROP_VAL=crop=1920:1024:0:28")
 if "%4"=="1036"				(set "CROP_VAL=crop=1920:1036:0:22")
 if "%4"=="1040"				(set "CROP_VAL=crop=1920:1040:0:20")
+if "%4"=="720"				(set "CROP_VAL=scale=1280:-1")
+if "%4"=="720p"				(set "CROP_VAL=scale=-2:720")
+if "%4"=="720f"				(set "CROP_VAL=scale=1280:720")
+if "%4"=="1080"				(set "CROP_VAL=scale=1920:-1")
+if "%4"=="1080p"			(set "CROP_VAL=scale=-2:1080")
+if "%4"=="1080f"			(set "CROP_VAL=scale=1920:1080")
+if "%4"=="2160"				(set "CROP_VAL=scale=3840:-1")
+if "%4"=="2160p"			(set "CROP_VAL=scale=-2:2160")
+if "%4"=="2160f"			(set "CROP_VAL=scale=3840:2160")
 if "%4"=="1440"				(set "CROP_VAL=crop=1440:1080:240:0")
 if "%4"=="1348"				(set "CROP_VAL=crop=1348:1080:286:0")
 if "%4"=="1420"				(set "CROP_VAL=crop=1420:1080:250:0")
@@ -304,51 +301,6 @@ if "%4"=="1780"				(set "CROP_VAL=crop=1780:1080:70:0")
 if "%4"=="1788"				(set "CROP_VAL=crop=1788:1080:66:0")
 if "%4"=="1792"				(set "CROP_VAL=crop=1792:1080:64:0")
 if "%4"=="1800"				(set "CROP_VAL=crop=1800:1080:60:0")
-if "%4"=="720" (
-	set "CROP_VAL=hwupload_cuda,scale_cuda=w=1280:h=-1:format=nv12:interp_algo=lanczos,hwdownload,format=nv12"
-	set "FILTER_HAS_RESIZE=1"
-	set "FILTER_HAS_SCALE_CUDA=1"
-)
-if "%4"=="720p" (
-	set "CROP_VAL=hwupload_cuda,scale_cuda=w=-2:h=720:format=nv12:interp_algo=lanczos,hwdownload,format=nv12"
-	set "FILTER_HAS_RESIZE=1"
-	set "FILTER_HAS_SCALE_CUDA=1"
-)
-if "%4"=="720f" (
-	set "CROP_VAL=hwupload_cuda,scale_cuda=w=1280:h=720:format=nv12:interp_algo=lanczos,hwdownload,format=nv12"
-	set "FILTER_HAS_RESIZE=1"
-	set "FILTER_HAS_SCALE_CUDA=1"
-)
-if "%4"=="1080" (
-	set "CROP_VAL=hwupload_cuda,scale_cuda=w=1920:h=-1:format=nv12:interp_algo=lanczos,hwdownload,format=nv12"
-	set "FILTER_HAS_RESIZE=1"
-	set "FILTER_HAS_SCALE_CUDA=1"
-)
-if "%4"=="1080p" (
-	set "CROP_VAL=hwupload_cuda,scale_cuda=w=-2:h=1080:format=nv12:interp_algo=lanczos,hwdownload,format=nv12"
-	set "FILTER_HAS_RESIZE=1"
-	set "FILTER_HAS_SCALE_CUDA=1"
-)
-if "%4"=="1080f" (
-	set "CROP_VAL=hwupload_cuda,scale_cuda=w=1920:h=1080:format=nv12:interp_algo=lanczos,hwdownload,format=nv12"
-	set "FILTER_HAS_RESIZE=1"
-	set "FILTER_HAS_SCALE_CUDA=1"
-)
-if "%4"=="2160" (
-	set "CROP_VAL=hwupload_cuda,scale_cuda=w=3840:h=-1:format=nv12:interp_algo=lanczos,hwdownload,format=nv12"
-	set "FILTER_HAS_RESIZE=1"
-	set "FILTER_HAS_SCALE_CUDA=1"
-)
-if "%4"=="2160p" (
-	set "CROP_VAL=hwupload_cuda,scale_cuda=w=-2:h=2160:format=nv12:interp_algo=lanczos,hwdownload,format=nv12"
-	set "FILTER_HAS_RESIZE=1"
-	set "FILTER_HAS_SCALE_CUDA=1"
-)
-if "%4"=="2160f" (
-	set "CROP_VAL=hwupload_cuda,scale_cuda=w=3840:h=2160:format=nv12:interp_algo=lanczos,hwdownload,format=nv12"
-	set "FILTER_HAS_RESIZE=1"
-	set "FILTER_HAS_SCALE_CUDA=1"
-)
 if "%4"=="c1"				(set "CROP_VAL=")
 if "%4"=="c2"				(set "CROP_VAL=")
 if "%4"=="c3"				(set "CROP_VAL=")
@@ -377,11 +329,6 @@ if "%5"=="artifact"			(set "FILTER=deblock=filter=weak")
 if "%5"=="artifacthq"		(set "FILTER=deblock=filter=strong")
 if "%5"=="superres"			(set "FILTER=scale=2*iw:2*ih:flags=lanczos")
 if "%5"=="superreshq"		(set "FILTER=scale=2*iw:2*ih:flags=spline")
-if "%5"=="vsr"				(set "FILTER=scale=2*iw:2*ih:flags=lanczos")
-if "%5"=="vsrdenoise"		(set "FILTER=scale=2*iw:2*ih:flags=lanczos,hqdn3d")
-if "%5"=="vsrdenoisehq"		(set "FILTER=scale=2*iw:2*ih:flags=lanczos,hqdn3d=3:3:6:6")
-if "%5"=="vsrartifact"		(set "FILTER=scale=2*iw:2*ih:flags=lanczos,deblock")
-if "%5"=="vsrartifacthq"	(set "FILTER=scale=2*iw:2*ih:flags=lanczos,deblock=filter=strong")
 if "%5"=="log"				(set "FILTER=")
 if "%5"=="f1"				(set "FILTER=")
 if "%5"=="f2"				(set "FILTER=")
@@ -621,7 +568,7 @@ set "TOK_ENCODER=def hevc he10 h264 av1 av10"
 set "TOK_AUDIO=copy copy1 copy2 copy12 copy23 ac3 aac eac3"
 set "TOK_QUALITY=def auto hq uhq lq ulq"
 set "TOK_CROP=none auto 696 768 800 804 808 812 816 872 960 1012 1024 1036 1040 720 720p 720f 1080 1080p 1080f 2160 2160p 2160f 1348 1420 1440 1480 1500 1764 1780 1788 1792 1800 c1 c2 c3 c4 c5 c6"
-set "TOK_FILTER=none text reverb deblock edgelevel smooth smooth31 smooth63 nlmeans gauss gauss5 sharp denoise denoisehq artifact artifacthq superres superreshq vsr vsrdenoise vsrdenoisehq vsrartifact vsrartifacthq log f1 f2 f3 f4 f5 f6"
+set "TOK_FILTER=none text reverb deblock edgelevel smooth smooth31 smooth63 nlmeans gauss gauss5 sharp denoise denoisehq artifact artifacthq superres superreshq log f1 f2 f3 f4 f5 f6"
 set "TOK_MODE=none deint yadif yadifbob double 23fps 25fps 30fps 60fps 29fps 59fps tweak brighter darker HDRtoSDR HDRtoSDRR HDRtoSDRM HDRtoSDRH dv dolby-vision"
 set "TOK_DECODER=def cuda cuvid vp8 vp9 vpx sw mpeg2 auto"
 exit /b
