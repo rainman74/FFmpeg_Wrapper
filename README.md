@@ -1,10 +1,10 @@
-# NVEncC64_Wrapper
+# FFmpeg_Wrapper
 
-Since [rigaya's](https://github.com/rigaya) excellent [NVEncC64](https://github.com/rigaya/NVEnc) encoder unfortunately does not have an automatic cropping function, and this is only rudimentary in FFmpeg, I have extended my wrapper and added this function.
+Since FFmpeg encoder unfortunately does not have an automatic cropping function, I have extended my wrapper and added this function.
 
 ## Simply calling the wrapper without parameters shows the usage:
 ```
-Usage: nvencc64_wrapper <encoder(hevc)> <audio(ac3)> <quality(28)> <crop> <filter> <mode> <decoder(avhw)>
+Usage: ffmpeg_wrapper <encoder(hevc)> <audio(ac3)> <quality(28)> <crop> <filter> <mode> <decoder(avhw)>
 
 encoder = [def|hevc|he10|h264|av1]
 audio   = [copy(1/2/12)|ac3(lq)|aac(lq)|eac3(lq)]
@@ -17,12 +17,12 @@ mode    = [copy|deint|yadif(bob)|double|23fps|25fps|30fps|60fps|29fps|59fps]
           [brighter|darker|vintage|linear|tweak|HDRtoSDR(R/M/H)|dv/dolby-vision]
 decoder = [def|hw|sw]
 
-Example: nvencc64_wrapper | encoder | audio | quality | crop | filter | mode | decoder |
-Example: nvencc64_wrapper   hevc      ac3
-Example: nvencc64_wrapper   hevc      ac3     auto      auto
-Example: nvencc64_wrapper   hevc      copy    auto      1080   vsr
-Example: nvencc64_wrapper   hevc      copy    hq        1080   copy
-Example: nvencc64_wrapper   hevc      copy    def       copy   copy     copy   sw
+Example: ffmpeg_wrapper | encoder | audio | quality | crop | filter | mode | decoder |
+Example: ffmpeg_wrapper   hevc      ac3
+Example: ffmpeg_wrapper   hevc      ac3     auto      auto
+Example: ffmpeg_wrapper   hevc      copy    auto      1080   vsr
+Example: ffmpeg_wrapper   hevc      copy    hq        1080   copy
+Example: ffmpeg_wrapper   hevc      copy    def       copy   copy     copy   sw
 ```
 
 ## Preparations:
@@ -39,7 +39,7 @@ Install GNU utils (head and sed version 4.0.7 or higher) in your path.
 
 ## Enable automatic cropping:
 You can activate auto-cropping for all files in the current path:<br><br>
-C:\>nvencc64_wrapper.cmd hevc ac3 **auto** **auto**<br><br>
+C:\>FFmpeg_wrapper.cmd hevc ac3 **auto** **auto**<br><br>
 The first **auto** parameter enables automatic quality upgrade based on the year (for older films which generally have more pronounced film grain).<br>
 The second **auto** parameter activates auto-cropping.
 
@@ -55,19 +55,19 @@ This approach allows the wrapper to handle quality selection, cropping, resizing
 
 For example:
 
-    nvencc64_wrapper.cmd hevc ac3 auto auto
+    ffmpeg_wrapper.cmd hevc ac3 auto auto
 
 or:
 
-    nvencc64_wrapper.cmd h264 eac3 auto auto
+    ffmpeg_wrapper.cmd h264 eac3 auto auto
 
 By using these commands as your default workflow, any new files added to the directory will be processed uniformly and converted to the intended target formats with minimal manual intervention.
 
 ## Manual:
-For further questions, please consult the [manual](https://github.com/rainman74/NVEncC64_Wrapper/wiki).
+For further questions, please consult the [manual](https://github.com/rainman74/FFmpeg_Wrapper/wiki).
 
 ## Version
-Current stable version: **v3.0**
+Current stable version: **v0.0**
 ---
 
 ## License
