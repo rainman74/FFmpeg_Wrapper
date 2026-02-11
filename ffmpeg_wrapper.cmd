@@ -68,6 +68,8 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if exist "%%I" if not exist
     set "SKIP_FILE="
     set "TARGET_DIR="
     set "RESIZE_REQUIRED=0"
+    set "AUTO_RES_W="
+    set "AUTO_RES_H="
     set "SRC_CODEC="
 
     for /f "usebackq delims=" %%C in (`mediainfo "--Inform=Video;%%Format%%" "%%I"`) do set "SRC_CODEC=%%C"
@@ -114,11 +116,13 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if exist "%%I" if not exist
                     set "RESIZE_REQUIRED=0"
                 ) else (
                     for /f "tokens=1,2,3,4 delims=:" %%a in ("!AUTO_CROP!") do (
-                        set /a "crop_w=1920 - %%a - %%c"
-                        set /a "crop_h=1080 - %%b - %%d"
-                        set "CROP_VAL=crop=!crop_w!:!crop_h!:%%a:%%b"
+                        set "CROP_VAL=crop=iw-%%a-%%c:ih-%%b-%%d:%%a:%%b"
                     )
-                    set "RESIZE_REQUIRED=1"
+                    for /f "tokens=1,2 delims=x" %%r in ("!AUTO_RES!") do (
+                        set "AUTO_RES_W=%%r"
+                        set "AUTO_RES_H=%%s"
+                    )
+                    if defined AUTO_RES_W if defined AUTO_RES_H set "RESIZE_REQUIRED=1"
                 )
             )
         ) else if defined CROP_VAL (
@@ -136,7 +140,11 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if exist "%%I" if not exist
 
         set "RESIZE_PARAM="
         if "!RESIZE_REQUIRED!"=="1" if "!FILTER_HAS_RESIZE!"=="0" (
-            set "RESIZE_PARAM=scale_cuda=w=1920:h=-2:interp_algo=lanczos:format=nv12"
+            if /i "!CROP_MODE!"=="AUTO" if defined AUTO_RES_W if defined AUTO_RES_H (
+                set "RESIZE_PARAM=scale_cuda=w=!AUTO_RES_W!:h=!AUTO_RES_H!:interp_algo=lanczos:format=nv12"
+            ) else (
+                set "RESIZE_PARAM=scale_cuda=w=1920:h=-2:interp_algo=lanczos:format=nv12"
+            )
             if "!FILTER_HAS_HWUPLOAD!"=="0" set "RESIZE_PARAM=hwupload_cuda,!RESIZE_PARAM!"
             set "RESIZE_PARAM=!RESIZE_PARAM!,hwdownload,format=nv12"
         )
@@ -337,8 +345,8 @@ if "%5"=="smooth"       (set "FILTER=avgblur=sizeX=3:sizeY=3")
 if "%5"=="smooth31"     (set "FILTER=avgblur=sizeX=31:sizeY=31")
 if "%5"=="smooth63"     (set "FILTER=avgblur=sizeX=63:sizeY=63")
 if "%5"=="nlmeans"      (set "FILTER=nlmeans")
-if "%5"=="gauss"        (set "FILTER=gausianblur=sigma=1")
-if "%5"=="gauss5"       (set "FILTER=gausianblur=sigma=5")
+if "%5"=="gauss"        (set "FILTER=gblur=sigma=1")
+if "%5"=="gauss5"       (set "FILTER=gblur=sigma=5")
 if "%5"=="sharp"        (set "FILTER=unsharp=5:5:1.0")
 if "%5"=="ss"           (set "FILTER=super2xsai")
 if "%5"=="denoise"      (set "FILTER=hqdn3d=1.5:1.5:6:6")
@@ -347,11 +355,11 @@ if "%5"=="artifact"     (set "FILTER=deblock=filter=weak")
 if "%5"=="artifacthq"   (set "FILTER=deblock=filter=strong")
 if "%5"=="superres"     (set "FILTER=scale=2*iw:2*ih:flags=lanczos")
 if "%5"=="superreshq"   (set "FILTER=scale=2*iw:2*ih:flags=spline")
-if "%5"=="vsr"          (set "FILTER=superres")
-if "%5"=="vsrdenoise"   (set "FILTER=superres,hqdn3d")
-if "%5"=="vsrdenoisehq" (set "FILTER=superres,hqdn3d=3:3:6:6")
-if "%5"=="vsrartifact"  (set "FILTER=superres,deblock")
-if "%5"=="vsrartifacthq"(set "FILTER=superres,deblock=filter=strong")
+if "%5"=="vsr"          (set "FILTER=scale=2*iw:2*ih:flags=lanczos")
+if "%5"=="vsrdenoise"   (set "FILTER=scale=2*iw:2*ih:flags=lanczos,hqdn3d")
+if "%5"=="vsrdenoisehq" (set "FILTER=scale=2*iw:2*ih:flags=lanczos,hqdn3d=3:3:6:6")
+if "%5"=="vsrartifact"  (set "FILTER=scale=2*iw:2*ih:flags=lanczos,deblock")
+if "%5"=="vsrartifacthq"(set "FILTER=scale=2*iw:2*ih:flags=lanczos,deblock=filter=strong")
 if "%5"=="log"          (set "FILTER=")
 if "%5"=="f1"           (set "FILTER=")
 if "%5"=="f2"           (set "FILTER=")
@@ -392,7 +400,7 @@ if "%7"=="cuda"   (set "DECODER=-hwaccel cuda -hwaccel_output_format cuda")
 if "%7"=="cuvid"  (set "DECODER=-hwaccel cuvid")
 if "%7"=="vp8"    (set "DECODER=-hwaccel cuvid -c:v vp8_cuvid")
 if "%7"=="vp9"    (set "DECODER=-hwaccel cuvid -c:v vp9_cuvid")
-if "%7"=="vpx"    (set "DECODER=-hwaccel cuvid -c:v vp8_cuvid -c:v vp9_cuvid")
+if "%7"=="vpx"    (set "DECODER=-hwaccel cuvid")
 if "%7"=="sw"     (set "DECODER=")
 if "%7"=="mpeg2"  (set "DECODER=-hwaccel cuvid -c:v mpeg2_cuvid -deint adaptive")
 if "%7"=="auto"   (set "DECODER=-hwaccel auto")
