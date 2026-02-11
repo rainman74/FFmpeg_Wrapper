@@ -3,20 +3,20 @@
 :INIT
 call :SETESC
 
-echo %ESC%[92mBitte wählen (ENTER = ARCHIVE):%ESC%[0m
-echo 1 = ARCHIVE, kodiert nach H.264/AC3 
-echo 2 = UPSCALE, kodiert nach FFV1/AC3 zum späteren Upscale via Topaz
-echo 3 = STANDARD, kodiert nach HEVC/AC3 
+echo %ESC%[92mPlease choose (ENTER = ARCHIVE):%ESC%[0m
+echo 1 = ARCHIVE, encoded to H.264/AC3
+echo 2 = UPSCALE, encoded to FFV1/AC3 for later Topaz upscale
+echo 3 = STANDARD, encoded to HEVC/AC3
 echo.
 
 set /p CHOICE="Auswahl: "
 
 if "%CHOICE%"=="2" (
-    set PROFILE=UPSCALE
+	set PROFILE=UPSCALE
 ) else if "%CHOICE%"=="3" (
-    set PROFILE=STANDARD
+	set PROFILE=STANDARD
 ) else (
-    set PROFILE=ARCHIVE
+	set PROFILE=ARCHIVE
 )
 
 echo %ESC%[104;97m PROFIL: !PROFILE! %ESC%[0m
@@ -28,9 +28,9 @@ if not exist _Converted md _Converted
 call :SET_ENCODER_PARAMS
 
 for %%I in (*.avs) do if not exist "_Converted\%%~nI.mkv" (
-    echo %ESC%[101;93m %%~nI %ESC%[0m
-    
-    call :CONVERT "%%I"
+	echo %ESC%[101;93m %%~nI %ESC%[0m
+
+	call :CONVERT "%%I"
 )
 
 goto :END
@@ -66,25 +66,25 @@ set "OUTPUT_FILE=_Converted\%~n1.mkv"
 if exist "%~n1.mkv" ( set "SOURCE_FILE=%~n1.mkv" ) else if exist "%~n1.mp4" ( set "SOURCE_FILE=%~n1.mp4" )
 
 for /f "tokens=*" %%C in ('ffprobe -hide_banner -v error -select_streams a:0 -show_entries stream^=channels -of default^=noprint_wrappers^=1:nokey^=1 "!SOURCE_FILE!"') do (
-    if %%C LEQ 2 ( set "BITRATE_AVS=192k" ) else ( set "BITRATE_AVS=384k" )
+	if %%C LEQ 2 ( set "BITRATE_AVS=192k" ) else ( set "BITRATE_AVS=384k" )
 )
 set "AUDIO_CODECS=-c:a:0 ac3 -b:a:0 !BITRATE_AVS!"
 
 set /a "IDX_TARGET=1"
 set "SKIP_FIRST="
 for /f "tokens=1,2 delims=," %%A in ('ffprobe -hide_banner -v error -select_streams a -show_entries stream^=codec_name^,channels -of default^=noprint_wrappers^=1:nokey^=1 "!SOURCE_FILE!"') do (
-    if defined SKIP_FIRST (
-        set "CUR_CODEC=%%A"
-        set "CUR_CHANNELS=%%B"
-        if !CUR_CHANNELS! LEQ 2 ( set "BITRATE=192k" ) else ( set "BITRATE=384k" )
-        if /i "!CUR_CODEC!"=="ac3" (
-            set "AUDIO_CODECS=!AUDIO_CODECS! -c:a:!IDX_TARGET! copy"
-        ) else (
-            set "AUDIO_CODECS=!AUDIO_CODECS! -c:a:!IDX_TARGET! ac3 -b:a:!IDX_TARGET! !BITRATE!"
-        )
-        set /a "IDX_TARGET+=1"
-    )
-    set "SKIP_FIRST=1"
+	if defined SKIP_FIRST (
+		set "CUR_CODEC=%%A"
+		set "CUR_CHANNELS=%%B"
+		if !CUR_CHANNELS! LEQ 2 ( set "BITRATE=192k" ) else ( set "BITRATE=384k" )
+		if /i "!CUR_CODEC!"=="ac3" (
+			set "AUDIO_CODECS=!AUDIO_CODECS! -c:a:!IDX_TARGET! copy"
+		) else (
+			set "AUDIO_CODECS=!AUDIO_CODECS! -c:a:!IDX_TARGET! ac3 -b:a:!IDX_TARGET! !BITRATE!"
+		)
+		set /a "IDX_TARGET+=1"
+	)
+	set "SKIP_FIRST=1"
 )
 
 %ENCODER_CMD% %INPUT_ARGS% -i "%INPUT_FILE%" -i "!SOURCE_FILE!" ^
