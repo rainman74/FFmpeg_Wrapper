@@ -34,9 +34,6 @@ $ffmpegCmd = "D:\Apps\ffmpeg.exe"
 $ffprobeCmd = "D:\Apps\ffprobe.exe"
 ```
 
-### GNU sed & head
-Install GNU utils (head and sed version 4.0.7 or higher) in your path.
-
 ## Enable automatic cropping:
 You can activate auto-cropping for all files in the current path:<br><br>
 C:\>FFmpeg_wrapper.cmd hevc ac3 **auto** **auto**<br><br>
@@ -65,9 +62,6 @@ By using these commands as your default workflow, any new files added to the dir
 
 ## Manual:
 For further questions, please consult the [manual](https://github.com/rainman74/FFmpeg_Wrapper/wiki).
-
-## Version
-Current stable version: **v0.0**
 ---
 
 ## License
