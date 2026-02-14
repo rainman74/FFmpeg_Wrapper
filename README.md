@@ -61,7 +61,7 @@ or:
 By using these commands as your default workflow, any new files added to the directory will be processed uniformly and converted to the intended target formats with minimal manual intervention.
 
 ## Manual:
-For further questions, please consult the [manual](https://github.com/rainman74/FFmpeg_Wrapper/wiki).
+For further questions, please consult the [manual](https://github.com/rainman74/NVEncC64_Wrapper/wiki).
 ---
 
 ## License
