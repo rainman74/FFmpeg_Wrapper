@@ -125,7 +125,7 @@ if /i "!CROP_MODE!"=="AUTO" (
 			set "PROBE_OK=0"
 			%DBG% RUN_PROBE is being executed
 			call :RUN_PROBE "%%I"
-			
+
 			if "!PROBE_OK!"=="0" (
 				%DBG% RUN_PROBE failed, moving file to _Check
 				call :ENSURE_DIR "_Check"
@@ -801,7 +801,7 @@ foreach($t in $j.tracks){
 			}
 		} else {
 			$actions+="--edit track:$num --set flag-default=0 --set flag-forced=0"
-		}        
+		}
 		if(-not [string]::IsNullOrWhiteSpace($name)){
 			$normalizedName = NormalizeName $name
 			if($null -ne $normalizedName){
