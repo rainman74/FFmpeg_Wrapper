@@ -28,10 +28,10 @@ Example: ffmpeg_wrapper   hevc      copy    def       copy   copy     copy   sw
 ## Preparations:
 
 ### FFmpeg and FFprobe
-The _absolute paths_ need to be adjusted beforehand for the both ffmpeg applications:<br>
+Both ffmpeg applications must be present in the path:<br>
 ```
-$ffmpegCmd = "D:\Apps\ffmpeg.exe"
-$ffprobeCmd = "D:\Apps\ffprobe.exe"
+ffmpeg.exe
+ffprobe.exe
 ```
 
 ## Enable automatic cropping:
