@@ -105,6 +105,12 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if exist "%%I" if not exist
 
 		call :SETCROP x x x !CROP_PARAM!
 
+		if "!AUDIO!"=="AUTO_LOGIC" (
+			call :APPLY_DYNAMIC_AUDIO "%%I" "%2"
+		) else (
+			set "AUDIO_ARGS=!AUDIO!"
+		)
+
 		if "%ENCODER%"=="h264_nvenc" (
 			call :SETQUALITY-H264
 		) else if "%ENCODER%"=="hevc_nvenc" (
@@ -121,7 +127,7 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if exist "%%I" if not exist
 
 		set "CROP_VAL="
 
-if /i "!CROP_MODE!"=="AUTO" (
+		if /i "!CROP_MODE!"=="AUTO" (
 			set "PROBE_OK=0"
 			%DBG% RUN_PROBE is being executed
 			call :RUN_PROBE "%%I"
@@ -193,7 +199,7 @@ if /i "!CROP_MODE!"=="AUTO" (
 		%DBG%   AUDIO  = "!AUDIO!"
 
 		if not defined SKIP_FILE (
-			start /low /b /wait ffmpeg %FF_FLAGS% !DECODER_PARAM! -i "%%I" -map 0 -c:v %ENCODER% -profile:v %PROFILE% -level:v auto -rc:v vbr -cq:v !QUALITY! !PRESET! -multipass:v fullres -spatial_aq:v 1 -temporal_aq:v 1 -aq-strength:v 10 -rc-lookahead:v 24 !TUNING! !B_REF! !VF_PARAM! !AUDIO! -c:s copy -map_metadata 0 -map_chapters 0 "_Converted\%%~nI.mkv"
+			ffmpeg %FF_FLAGS% !DECODER_PARAM! -i "%%I" -map 0 -c:v %ENCODER% -profile:v %PROFILE% -level:v auto -rc:v vbr -cq:v !QUALITY! !PRESET! -multipass:v fullres -spatial_aq:v 1 -temporal_aq:v 1 -aq-strength:v 10 -rc-lookahead:v 24 !TUNING! !B_REF! !VF_PARAM! !AUDIO_ARGS! -c:s copy -map_metadata 0 -map_chapters 0 "_Converted\%%~nI.mkv"
 
 			if exist "_Converted\%%~nI.mkv" (
 				if "%EDIT_TAGS%"=="1" call :EDIT_TAGS "_Converted\%%~nI.mkv"
@@ -207,7 +213,11 @@ if /i "!CROP_MODE!"=="AUTO" (
 		)
 	)
 )
-if "%FOUND%"=="0" echo No files found.
+if "%FOUND%"=="0" (
+    echo No files found.
+) else (
+    powershell -command "$o=ls . -inc *.mkv,*.mp4,*.avi,*.webm; $s=0; $d=0; foreach($f in $o){$c='_Converted\'+$f.Name; if(test-path $c){$s+=$f.Length; $d+=(ls $c).Length}}; if($s -gt 0){write-host ('[INFO] Savings: {0:N2} GB ({1:P1})' -f (($s-$d)/1GB), (($s-$d)/$s)) -fg Green}"
+)
 exit /b
 
 :SETQUALITY-HEVC
@@ -257,15 +267,15 @@ if "%1"=="av10"				(set "ENCODER=av1_nvenc"  & set "PROFILE=main")
 exit /b
 
 :SETAUDIO
-set "AUDIO=-c:a ac3 -b:a 384k"
+set "AUDIO=AUTO_LOGIC"
 if "%2"=="copy"				(set "AUDIO=-c:a copy")
 if "%2"=="copy1"			(set "AUDIO=-map 0:a:0 -c:a copy")
 if "%2"=="copy2"			(set "AUDIO=-map 0:a:1 -c:a copy")
 if "%2"=="copy12"			(set "AUDIO=-map 0:a:0 -c:a:0 copy -map 0:a:1 -c:a:1 copy")
 if "%2"=="copy23"			(set "AUDIO=-map 0:a:1 -c:a:0 copy -map 0:a:2 -c:a:1 copy")
-if "%2"=="ac3"				(set "AUDIO=-c:a ac3 -b:a 384k")
-if "%2"=="aac"				(set "AUDIO=-c:a aac -b:a 224k")
-if "%2"=="eac3"				(set "AUDIO=-c:a eac3 -b:a 640k")
+if "%2"=="ac3"				(set "AUDIO=AUTO_LOGIC")
+if "%2"=="aac"				(set "AUDIO=AUTO_LOGIC")
+if "%2"=="eac3"				(set "AUDIO=AUTO_LOGIC")
 exit /b
 
 :SETCROP
@@ -469,6 +479,32 @@ if exist "%PS_SCRIPT%" del "%PS_SCRIPT%"
 if exist "%PS_SET_FILE%" del "%PS_SET_FILE%"
 endlocal & exit /b
 
+:APPLY_DYNAMIC_AUDIO
+set "AUDIO_ARGS="
+set /a "IDX_TARGET=0"
+
+set "TARGET_CODEC=%~2"
+if "!TARGET_CODEC!"=="" set "TARGET_CODEC=ac3"
+
+if /i "!TARGET_CODEC!"=="ac3"  (set "BR_LOW=192k" & set "BR_HIGH=384k")
+if /i "!TARGET_CODEC!"=="aac"  (set "BR_LOW=128k" & set "BR_HIGH=256k")
+if /i "!TARGET_CODEC!"=="eac3" (set "BR_LOW=320k" & set "BR_HIGH=640k")
+
+for /f "tokens=1,2 delims=," %%A in ('ffprobe -hide_banner -v error -select_streams a -show_entries stream^=codec_name^,channels -of csv^=p^=0 "%~1"') do (
+    set "CUR_CODEC=%%A"
+    set "CUR_CHANNELS=%%B"
+    
+    if !CUR_CHANNELS! LEQ 2 (set "BITRATE=!BR_LOW!") else (set "BITRATE=!BR_HIGH!")
+    
+    if /i "!CUR_CODEC!"=="!TARGET_CODEC!" (
+        set "AUDIO_ARGS=!AUDIO_ARGS! -c:a:!IDX_TARGET! copy"
+    ) else (
+        set "AUDIO_ARGS=!AUDIO_ARGS! -c:a:!IDX_TARGET! !TARGET_CODEC! -b:a:!IDX_TARGET! !BITRATE!"
+    )
+    set /a "IDX_TARGET+=1"
+)
+exit /b
+
 :RUN_PROBE
 setlocal
 set "S=" & set "E="
@@ -579,7 +615,7 @@ endlocal
 goto :END
 
 :SETESC
-for /f "usebackq delims=" %%A in ('echo prompt $E^| cmd') do set "ESC=%%A"
+for /f "usebackq delims=" %%A in (`echo prompt $E^| cmd`) do set "ESC=%%A"
 set "UL=%ESC%[4m"
 set "NO=%ESC%[24m"
 exit /b
@@ -817,7 +853,3 @@ foreach($t in $j.tracks){
 }
 "SET EDIT_ACTIONS=$($actions -join ' ')" | Out-File -Encoding ASCII -FilePath $SetFile
 #PS_EDIT_TAGS_END#
-
-:SETESC
-for /f "delims=" %%A in ('echo prompt $E^| cmd') do set "ESC=%%A"
-exit /b
