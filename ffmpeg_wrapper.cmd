@@ -9,7 +9,7 @@ if '%1'=='-h' goto USAGE
 if '%1'=='' goto USAGE
 
 set "EDIT_TAGS=1"
-set "DEBUG_AUTOCROP=1"
+set "DEBUG_AUTOCROP=0"
 if "%DEBUG_AUTOCROP%"=="1" (set "DBG=call :DEBUG") else (set "DBG=call :NOP")
 
 call :VALIDATE-PARAMS %*
@@ -182,7 +182,7 @@ if /i "!CROP_MODE!"=="AUTO" (
 		)
 
 		setlocal DisableDelayedExpansion
-		echo "file:\\\%%~dI%%~pI"| sed -r "s/[\"]/\a/g; s/[\\]/\//g; s/[ ]/\%%20/g; s/[#]/\%%23/g; s/[']/\%%27/g; s/!/%%21/g"
+		powershell -command "write-output ('file:///' + (get-item '%%~dpI').FullName.Replace('\', '/') -replace [char]34, [char]7 -replace ' ', '%%20' -replace '#', '%%23' -replace [char]39, '%%27' -replace '!', '%%21' -replace '\(', '%%28' -replace '\)', '%%29')"
 		endlocal
 
 		mediainfo --Inform="General;%%Duration/String2%% - %%FileSize/String4%%" "%%I"
@@ -193,7 +193,7 @@ if /i "!CROP_MODE!"=="AUTO" (
 		%DBG%   AUDIO  = "!AUDIO!"
 
 		if not defined SKIP_FILE (
-			echo ffmpeg %FF_FLAGS% !DECODER_PARAM! -i "%%I" -map 0 -c:v %ENCODER% -profile:v %PROFILE% -level auto -rc vbr -cq:v !QUALITY! !PRESET! -multipass fullres -spatial_aq 1 -temporal_aq 1 -aq-strength 10 -rc-lookahead 24 !TUNING! !B_REF! !VF_PARAM! !AUDIO! -c:s copy -map_metadata 0 -map_chapters 0 "_Converted\%%~nI.mkv"
+			start /low /b /wait ffmpeg %FF_FLAGS% !DECODER_PARAM! -i "%%I" -map 0 -c:v %ENCODER% -profile:v %PROFILE% -level:v auto -rc:v vbr -cq:v !QUALITY! !PRESET! -multipass:v fullres -spatial_aq:v 1 -temporal_aq:v 1 -aq-strength:v 10 -rc-lookahead:v 24 !TUNING! !B_REF! !VF_PARAM! !AUDIO! -c:s copy -map_metadata 0 -map_chapters 0 "_Converted\%%~nI.mkv"
 
 			if exist "_Converted\%%~nI.mkv" (
 				if "%EDIT_TAGS%"=="1" call :EDIT_TAGS "_Converted\%%~nI.mkv"
@@ -218,14 +218,14 @@ if "!REQ_Q!"=="auto" (
 	echo "!FILENAME!" | findstr /c:"(20" >nul && set "ACTUAL_Q=def"
 	if "!ACTUAL_Q!"=="none" set "ACTUAL_Q=def"
 )
-set "PRESET=-preset p7"
-set "TUNING=-tune hq"
-set "B_REF=-bf 3 -refs 4 -b_ref_mode middle"
-if "!ACTUAL_Q!"=="uhq"		(set "QUALITY=22" & set "TUNING=-tune hq" & set "B_REF=-bf 4 -refs 4 -b_ref_mode middle")
+set "PRESET=-preset:v p7"
+set "TUNING=-tune:v hq"
+set "B_REF=-bf:v 3 -refs:v 4 -b_ref_mode:v middle"
+if "!ACTUAL_Q!"=="uhq"		(set "QUALITY=22" & set "TUNING=-tune:v hq" & set "B_REF=-bf:v 4 -refs:v 4 -b_ref_mode:v middle")
 if "!ACTUAL_Q!"=="hq"		(set "QUALITY=24")
 if "!ACTUAL_Q!"=="def"		(set "QUALITY=26")
 if "!ACTUAL_Q!"=="lq"		(set "QUALITY=28")
-if "!ACTUAL_Q!"=="ulq"		(set "QUALITY=30" & set "TUNING=-tune ll" & set "PRESET=-preset p1" & set "B_REF=-bf 3 -refs 4 -b_ref_mode disabled")
+if "!ACTUAL_Q!"=="ulq"		(set "QUALITY=30" & set "TUNING=-tune:v ll" & set "PRESET=-preset p1" & set "B_REF=-bf:v 3 -refs:v 4 -b_ref_mode:v disabled")
 exit /b
 
 :SETQUALITY-H264
@@ -236,14 +236,14 @@ if "!REQ_Q!"=="auto" (
 	echo "!FILENAME!" | findstr /c:"(20" >nul && set "ACTUAL_Q=def"
 	if "!ACTUAL_Q!"=="none" set "ACTUAL_Q=def"
 )
-set "PRESET=-preset p7"
-set "TUNING=-tune film"
-set "B_REF=-bf 3 -refs 4"
-if "!ACTUAL_Q!"=="uhq"		(set "QUALITY=20" & set "TUNING=-tune hq" & set "B_REF=-bf 4 -refs 4")
+set "PRESET=-preset:v p7"
+set "TUNING=-tune:v film"
+set "B_REF=-bf:v 3 -refs:v 4"
+if "!ACTUAL_Q!"=="uhq"		(set "QUALITY=20" & set "TUNING=-tune:v hq" & set "B_REF=-bf:v 4 -refs:v 4")
 if "!ACTUAL_Q!"=="hq"		(set "QUALITY=22")
 if "!ACTUAL_Q!"=="def"		(set "QUALITY=24")
 if "!ACTUAL_Q!"=="lq"		(set "QUALITY=26")
-if "!ACTUAL_Q!"=="ulq"		(set "QUALITY=28" & set "TUNING=-tune ll" & set "PRESET=-preset p1" & set "B_REF=-bf 3 -refs 4")
+if "!ACTUAL_Q!"=="ulq"		(set "QUALITY=28" & set "TUNING=-tune:v ll" & set "PRESET=-preset p1" & set "B_REF=-bf:v 3 -refs:v 4")
 exit /b
 
 :SETENCODER
@@ -427,7 +427,11 @@ if not defined S endlocal & exit /b 9
 set /a E=E
 if %E% LEQ 0 endlocal & exit /b 9
 
-more +%S% "%~f0" | head -n %E% > "%PS_SCRIPT%"
+powershell -NoProfile -Command ^
+  "$lines = Get-Content -Path '%~f0' -Encoding UTF8;" ^
+  "$start = %S%;" ^
+  "$end = $start + %E% - 1;" ^
+  "$lines[$start..$end] | Out-File -FilePath '%PS_SCRIPT%' -Encoding utf8 -Force"
 
 powershell.exe -NoProfile -ExecutionPolicy Bypass ^
   -File "%PS_SCRIPT%" "%FILE%" "%PS_SET_FILE%"
@@ -483,7 +487,11 @@ if not defined S endlocal & exit /b 9
 set /a E=E
 if %E% LEQ 0 endlocal & exit /b 9
 
-more +%S% "%~f0" | head -n %E% > "%PS_SCRIPT%"
+powershell -NoProfile -Command ^
+  "$lines = Get-Content -Path '%~f0' -Encoding UTF8;" ^
+  "$start = %S%;" ^
+  "$end = $start + %E% - 1;" ^
+  "$lines[$start..$end] | Out-File -FilePath '%PS_SCRIPT%' -Encoding utf8 -Force"
 
 powershell.exe -executionpolicy bypass -file "%PS_SCRIPT%" "%~1" -SetFile "%PS_SET_FILE%" -StatusFile "%PS_STATUS_FILE%"
 
