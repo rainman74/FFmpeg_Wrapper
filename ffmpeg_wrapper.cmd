@@ -579,7 +579,7 @@ endlocal
 goto :END
 
 :SETESC
-for /f "delims=" %%A in ('echo prompt $E^| cmd') do set "ESC=%%A"
+for /f "usebackq delims=" %%A in ('echo prompt $E^| cmd') do set "ESC=%%A"
 set "UL=%ESC%[4m"
 set "NO=%ESC%[24m"
 exit /b
@@ -817,3 +817,7 @@ foreach($t in $j.tracks){
 }
 "SET EDIT_ACTIONS=$($actions -join ' ')" | Out-File -Encoding ASCII -FilePath $SetFile
 #PS_EDIT_TAGS_END#
+
+:SETESC
+for /f "delims=" %%A in ('echo prompt $E^| cmd') do set "ESC=%%A"
+exit /b
