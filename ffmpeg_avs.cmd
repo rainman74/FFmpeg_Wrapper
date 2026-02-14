@@ -45,17 +45,17 @@ goto :EOF
 
 :ARCHIVE
 set ENCODER_CMD=ffmpeg
-set ENCODER_ARGS=-c:v h264_nvenc -profile:v high -preset p7 -tune hq -rc:v vbr -cq:v 24 -multipass fullres -spatial-aq 1 -temporal-aq 1 -aq-strength 10 -rc-lookahead:v 24 -refs 4 -bf 3 -b_ref_mode middle -c:s copy -c:t copy
+set ENCODER_ARGS=-c:v h264_nvenc -profile:v high -preset:v p7 -tune:v hq -rc:v vbr -cq:v 24 -multipass:v fullres -spatial-aq:v 1 -temporal-aq:v 1 -aq-strength:v 10 -rc-lookahead:v 24 -refs:v 4 -bf:v 3 -b_ref_mode:v middle -c:s copy -c:t copy
 goto :EOF
 
 :UPSCALE
 set ENCODER_CMD=ffmpeg
-set ENCODER_ARGS=-c:v ffv1 -level 3 -slices 16 -c:s copy -c:t copy
+set ENCODER_ARGS=-c:v ffv1 -level:v 3 -coder:v 1 -context:v 1 -g:v 1 -slices:v 16 -pix_fmt:v yuv422p10le -c:s copy -c:t copy
 goto :EOF
 
 :STANDARD
 set ENCODER_CMD=ffmpeg
-set ENCODER_ARGS=-c:v hevc_nvenc -profile:v main -preset p7 -tune hq -rc:v vbr -cq:v 26 -multipass fullres -spatial-aq 1 -temporal-aq 1 -aq-strength 10 -rc-lookahead:v 24 -refs 4 -bf 3 -b_ref_mode middle -c:s copy -c:t copy
+set ENCODER_ARGS=-c:v hevc_nvenc -profile:v main -preset:v p7 -tune:v hq -rc:v vbr -cq:v 26 -multipass:v fullres -spatial-aq:v 1 -temporal-aq:v 1 -aq-strength:v 10 -rc-lookahead:v 24 -refs:v 4 -bf:v 3 -b_ref_mode:v middle -c:s copy -c:t copy
 goto :EOF
 
 :CONVERT
