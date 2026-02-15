@@ -9,6 +9,7 @@ if '%1'=='-h' goto USAGE
 if '%1'=='' goto USAGE
 
 set "EDIT_TAGS=1"
+set "CHECK_ENCODED=1"
 set "DEBUG_AUTOCROP=0"
 if "%DEBUG_AUTOCROP%"=="1" (set "DBG=call :DEBUG") else (set "DBG=call :NOP")
 
@@ -80,19 +81,21 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if exist "%%I" if not exist
 	if not defined SRC_CODEC (
 		echo ERROR: Could not detect codec. Moving file to _Check.
 		call :ENSURE_DIR "_Check"
-		move "%%I" "_Check\" >nul
+		move /Y "%%I" "_Check\" >nul
 		set "SKIP_FILE=1"
 	) else (
-		if /i "!SRC_CODEC!"=="HEVC" if /i "%ENCODER%"=="hevc_nvenc" set "TARGET_DIR=_Converted"
-		if /i "!SRC_CODEC!"=="AVC"  if /i "%ENCODER%"=="h264_nvenc" set "TARGET_DIR=_Converted"
-		if /i "!SRC_CODEC!"=="AV1"  if /i "%ENCODER%"=="av1_nvenc"  set "TARGET_DIR=_Converted"
+		if "%CHECK_ENCODED%"=="1" (
+			if /i "!SRC_CODEC!"=="HEVC" if /i "%ENCODER%"=="hevc_nvenc" set "TARGET_DIR=_Converted"
+			if /i "!SRC_CODEC!"=="AVC"  if /i "%ENCODER%"=="h264_nvenc" set "TARGET_DIR=_Converted"
+			if /i "!SRC_CODEC!"=="AV1"  if /i "%ENCODER%"=="av1_nvenc"  set "TARGET_DIR=_Converted"
+		)
 	)
 
 	if defined TARGET_DIR (
 		call :ENSURE_DIR "!TARGET_DIR!"
 		set "MOVED_FILE=!TARGET_DIR!\%%~nxI"
 		echo %ESC%[91mWARNING: Source already encoded as !SRC_CODEC!. Moving file to !TARGET_DIR!.%ESC%[0m
-		move "%%I" "!MOVED_FILE!" >nul
+		move /Y "%%I" "!MOVED_FILE!" >nul
 		set "SKIP_FILE=1"
 		if "%EDIT_TAGS%"=="1" call :EDIT_TAGS "!MOVED_FILE!"
 	)
@@ -135,7 +138,7 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if exist "%%I" if not exist
 			if "!PROBE_OK!"=="0" (
 				%DBG% RUN_PROBE failed, moving file to _Check
 				call :ENSURE_DIR "_Check"
-				move "%%I" "_Check\" >nul
+				move /Y "%%I" "_Check\" >nul
 				set "SKIP_FILE=1"
 			) else (
 				if "!AUTO_CROP!"=="0:0:0:0" (
@@ -338,12 +341,12 @@ if "%5"=="edgelevel"		(set "FILTER=unsharp=5:5:0.5")
 if "%5"=="smooth"			(set "FILTER=avgblur=sizeX=3:sizeY=3")
 if "%5"=="smooth31"			(set "FILTER=avgblur=sizeX=31:sizeY=31")
 if "%5"=="smooth63"			(set "FILTER=avgblur=sizeX=63:sizeY=63")
-if "%5"=="nlmeans"			(set "FILTER=nlmeans")
+if "%5"=="nlmeans"			(set "FILTER=nlmeans=s=1.5:p=7:r=15")
 if "%5"=="gauss"			(set "FILTER=gblur=sigma=1")
 if "%5"=="gauss5"			(set "FILTER=gblur=sigma=5")
 if "%5"=="sharp"			(set "FILTER=unsharp=5:5:1.0")
-if "%5"=="denoise"			(set "FILTER=hqdn3d=1.5:1.5:6:6")
-if "%5"=="denoisehq"		(set "FILTER=hqdn3d=3:3:6:6")
+if "%5"=="denoise"			(set "FILTER=atadenoise=0.05:0.05:0.3")
+if "%5"=="denoisehq"		(set "FILTER=dctdnoiz=s=4.5,atadenoise=0.05:0.05:0.3")
 if "%5"=="artifact"			(set "FILTER=deblock=filter=weak")
 if "%5"=="artifacthq"		(set "FILTER=deblock=filter=strong")
 if "%5"=="superres"			(set "FILTER=scale=2*iw:2*ih:flags=lanczos")
@@ -382,13 +385,13 @@ if "%6"=="dolby-vision"		(set "MODE=libplacebo=tonemapping=bt2390")
 exit /b
 
 :SETDECODER
-set "DECODER=-hwaccel auto"
-if "%7"=="def"				(set "DECODER=-hwaccel auto")
+set "DECODER=-hwaccel cuda -hwaccel_output_format cuda"
+if "%7"=="def"				(set "DECODER=-hwaccel cuda -hwaccel_output_format cuda")
 if "%7"=="cuda"				(set "DECODER=-hwaccel cuda -hwaccel_output_format cuda")
 if "%7"=="cuvid"			(set "DECODER=-hwaccel cuvid")
 if "%7"=="vp8"				(set "DECODER=-hwaccel cuvid -c:v vp8_cuvid")
 if "%7"=="vp9"				(set "DECODER=-hwaccel cuvid -c:v vp9_cuvid")
-if "%7"=="vpx"				(set "DECODER=-hwaccel cuvid")
+if "%7"=="vpx"				(set "DECODER=-hwaccel cuvid -c:v libvpx")
 if "%7"=="sw"				(set "DECODER=")
 if "%7"=="mpeg2"			(set "DECODER=-hwaccel cuvid -c:v mpeg2_cuvid -deint adaptive")
 if "%7"=="auto"				(set "DECODER=-hwaccel auto")
@@ -430,8 +433,8 @@ set "PS_SET_FILE=%TEMP%\edit_tags_set_%RANDOM%.cmd"
 if exist "%PS_SCRIPT%" del "%PS_SCRIPT%"
 if exist "%PS_SET_FILE%" del "%PS_SET_FILE%"
 
-for /f "tokens=1 delims=:" %%A in ('findstr /n "^#PS_EDIT_TAGS_BEGIN#" "%~f0"') do set /a S=%%A
-for /f "tokens=1 delims=:" %%A in ('findstr /n "^#PS_EDIT_TAGS_END#"   "%~f0"') do set /a E=%%A-S
+for /f "usebackq tokens=1 delims=:" %%A in (`findstr /n "^#PS_EDIT_TAGS_BEGIN#" "%~f0"`) do set /a S=%%A
+for /f "usebackq tokens=1 delims=:" %%A in (`findstr /n "^#PS_EDIT_TAGS_END#"   "%~f0"`) do set /a E=%%A-S
 
 if not defined S endlocal & exit /b 9
 set /a E=E
@@ -482,7 +485,7 @@ endlocal & exit /b
 :APPLY_DYNAMIC_AUDIO
 set "AUDIO_ARGS="
 set /a "IDX_TARGET=0"
-
+set "SOURCE_FILE=%~1"
 set "TARGET_CODEC=%~2"
 if "!TARGET_CODEC!"=="" set "TARGET_CODEC=ac3"
 
@@ -490,7 +493,7 @@ if /i "!TARGET_CODEC!"=="ac3"  (set "BR_LOW=192k" & set "BR_HIGH=384k")
 if /i "!TARGET_CODEC!"=="aac"  (set "BR_LOW=128k" & set "BR_HIGH=256k")
 if /i "!TARGET_CODEC!"=="eac3" (set "BR_LOW=320k" & set "BR_HIGH=640k")
 
-for /f "tokens=1,2 delims=," %%A in ('ffprobe -hide_banner -v error -select_streams a -show_entries stream^=codec_name^,channels -of csv^=p^=0 "%~1"') do (
+for /f "usebackq tokens=1,2 delims=," %%A in (`ffprobe -hide_banner -v error -select_streams a -show_entries stream^=codec_name^,channels -of csv^=p^=0 "!SOURCE_FILE!"`) do (
     set "CUR_CODEC=%%A"
     set "CUR_CHANNELS=%%B"
     
@@ -516,8 +519,8 @@ set "PS_SET_FILE=%TEMP%\probe_set_vars_%RANDOM%.cmd"
 set "PS_STATUS_FILE=%TEMP%\probe_status_output_%RANDOM%.tmp"
 if exist "%PS_SET_FILE%" del "%PS_SET_FILE%"
 if exist "%PS_STATUS_FILE%" del "%PS_STATUS_FILE%"
-for /f "tokens=1 delims=:" %%A in ('findstr /n "^#PS_RUN_PROBE_BEGIN#" "%~f0"') do set /a S=%%A
-for /f "tokens=1 delims=:" %%A in ('findstr /n "^#PS_RUN_PROBE_END#"   "%~f0"') do set /a E=%%A-S
+for /f "usebackq tokens=1 delims=:" %%A in (`findstr /n "^#PS_RUN_PROBE_BEGIN#" "%~f0"`) do set /a S=%%A
+for /f "usebackq tokens=1 delims=:" %%A in (`findstr /n "^#PS_RUN_PROBE_END#"   "%~f0"`) do set /a E=%%A-S
 
 if not defined S endlocal & exit /b 9
 set /a E=E
@@ -851,5 +854,5 @@ foreach($t in $j.tracks){
 		continue
 	}
 }
-"SET EDIT_ACTIONS=$($actions -join ' ')" | Out-File -Encoding ASCII -FilePath $SetFile
+"SET EDIT_ACTIONS=$($actions -join ' ')" | Out-File -Encoding Default -FilePath $SetFile
 #PS_EDIT_TAGS_END#
