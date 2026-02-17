@@ -143,7 +143,7 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if exist "%%I" if not exist
 			) else (
 				if "!AUTO_CROP!"=="0:0:0:0" (
 					%DBG% AUTO-CROP: no crop detected, passthrough
-					set "CROP_VAL="
+					set "CROP_VAL=null"
 					set "RESIZE_REQUIRED=0"
 				) else (
 					for /f "tokens=1,2,3,4 delims=:" %%a in ("!AUTO_CROP!") do (
@@ -548,7 +548,13 @@ if "%RC%"=="8" if defined NVEnc_Crop goto :PROBE_OK
 endlocal & exit /b 1
 
 :PROBE_OK
-endlocal & set "AUTO_CROP=%NVEnc_Crop%" & set "AUTO_RES=%NVEnc_Res%" & set "PROBE_OK=1"
+set "TEMP_CROP=%NVEnc_Crop%"
+set "TEMP_RES=%NVEnc_Res%"
+endlocal & (
+	set "AUTO_CROP=%TEMP_CROP%"
+	set "AUTO_RES=%TEMP_RES%"
+	set "PROBE_OK=1"
+)
 exit /b 0
 
 :PRINT_TOK
@@ -745,7 +751,7 @@ if ($ExitCode -eq 0) {
 		"SET NVEnc_Res=${BestW}x${OrigHeight}" | Out-File -Encoding ASCII $SetFile -Append
 		exit 0
 	}
-	if ([math]::Abs($CropT - $CropB) -gt 4) {
+	if ([math]::Abs($CropT - $CropB) -gt 10) {
 		$RejectReason = "vertical asymmetry (T=$CropT B=$CropB)"
 	}
 	elseif ( ($CropT -eq 0 -and $CropB -gt 0) -or ($CropB -eq 0 -and $CropT -gt 0) ) {
