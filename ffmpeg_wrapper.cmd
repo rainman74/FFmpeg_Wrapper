@@ -258,7 +258,7 @@ if "!REQ_Q!"=="auto" (
 	if "!ACTUAL_Q!"=="none" set "ACTUAL_Q=def"
 )
 set "PRESET=-preset:v p7"
-set "TUNING=-tune:v film"
+set "TUNING=-tune:v hq"
 set "B_REF=-bf:v 3 -refs:v 4"
 if "!ACTUAL_Q!"=="uhq"		(set "QUALITY=20" & set "TUNING=-tune:v hq" & set "B_REF=-bf:v 4 -refs:v 4")
 if "!ACTUAL_Q!"=="hq"		(set "QUALITY=22")
@@ -845,7 +845,11 @@ foreach($t in $j.tracks){
 		continue
 	}
 	if($type -eq 'subtitles'){
-		if($t.properties.forced_track -eq $true){
+		$isForced = $false
+		if($t.properties.forced_track -eq $true){ $isForced = $true }
+		if($name -match '(?i)forced'){ $isForced = $true }
+	
+		if($isForced){
 			if(-not $forcedDone){
 				$actions+="--edit track:$num --set flag-default=1 --set flag-forced=1"
 				$forcedDone = $true
