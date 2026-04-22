@@ -1,6 +1,7 @@
 @echo off & setlocal enabledelayedexpansion
 
 :INIT
+chcp 1252 >nul
 call :SETESC
 set "FF_FLAGS=-v info -hide_banner -stats -err_detect ignore_err -fflags +genpts+igndts"
 set "DECODER_PARAM=-hwaccel auto"
