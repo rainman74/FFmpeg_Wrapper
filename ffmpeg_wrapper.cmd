@@ -9,19 +9,19 @@ if '%1'=='-h' goto USAGE
 if '%1'=='' goto USAGE
 
 set "EDIT_TAGS=1"
-set "CHECK_ENCODED=1"
 set "DEBUG_AUTOCROP=0"
 if "%DEBUG_AUTOCROP%"=="1" (set "DBG=call :DEBUG") else (set "DBG=call :NOP")
 
 call :VALIDATE-PARAMS %*
 if "!PARAM_ERR!"=="1" goto :END
 
-call :SETENCODER %1 %2 %3 %4 %5 %6 %7
-call :SETAUDIO   %1 %2 %3 %4 %5 %6 %7
-call :SETCROP    %1 %2 %3 %4 %5 %6 %7
-call :SETFILTER  %1 %2 %3 %4 %5 %6 %7
-call :SETMODE    %1 %2 %3 %4 %5 %6 %7
-call :SETDECODER %1 %2 %3 %4 %5 %6 %7
+call :SETENCODER %1 %2 %3 %4 %5 %6 %7 %8
+call :SETAUDIO   %1 %2 %3 %4 %5 %6 %7 %8
+call :SETCROP    %1 %2 %3 %4 %5 %6 %7 %8
+call :SETFILTER  %1 %2 %3 %4 %5 %6 %7 %8
+call :SETMODE    %1 %2 %3 %4 %5 %6 %7 %8
+call :SETDECODER %1 %2 %3 %4 %5 %6 %7 %8
+call :SETCHKENC  %1 %2 %3 %4 %5 %6 %7 %8
 
 set "DECODER_PARAM="
 if defined DECODER set "DECODER_PARAM=!DECODER!"
@@ -129,13 +129,11 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if exist "%%I" if not exist
 			call :SETQUALITY-HEVC
 		)
 
-		if "!REQ_Q!"=="auto" (
-			echo "!FILENAME!" | findstr /c:"(19" >nul || echo "!FILENAME!" | findstr /c:"(20" >nul || (
-				echo %ESC%[91mWARNING: No year found in filename. Falling back to default quality (!QUALITY!^)%ESC%[0m
-			)
+		if "!AUTO_Q_FALLBACK!"=="1" (
+			echo %ESC%[91mWARNING: No year found in filename. Falling back to default quality (!QUALITY!^).%ESC%[0m
 		)
 
-		set "CROP_VAL="
+		if /i "!CROP_MODE!"=="AUTO" set "CROP_VAL="
 
 		if /i "!CROP_MODE!"=="AUTO" (
 			set "PROBE_OK=0"
@@ -211,6 +209,7 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if exist "%%I" if not exist
 
 		if not defined SKIP_FILE (
 			ffmpeg %FF_FLAGS% !DECODER_PARAM! -i "%%I" -map 0 -c:v %ENCODER% -profile:v %PROFILE% -level:v auto -rc:v vbr -cq:v !QUALITY! !PRESET! -multipass:v fullres -spatial_aq:v 1 -temporal_aq:v 1 -aq-strength:v 10 -rc-lookahead:v 24 !TUNING! !B_REF! !VF_PARAM! !AUDIO_ARGS! -c:s copy -map_metadata 0 -map_chapters 0 "_Converted\%%~nI.mkv"
+			if errorlevel 1 exit /b !ERRORLEVEL!
 
 			if exist "_Converted\%%~nI.mkv" (
 				if "%EDIT_TAGS%"=="1" call :EDIT_TAGS "_Converted\%%~nI.mkv"
@@ -232,12 +231,13 @@ if "%FOUND%"=="0" (
 exit /b
 
 :SETQUALITY-HEVC
+set "AUTO_Q_FALLBACK=0"
 set "ACTUAL_Q=!REQ_Q!"
 if "!REQ_Q!"=="auto" (
 	set "ACTUAL_Q=none"
 	echo "!FILENAME!" | findstr /c:"(19" >nul && set "ACTUAL_Q=hq"
 	echo "!FILENAME!" | findstr /c:"(20" >nul && set "ACTUAL_Q=def"
-	if "!ACTUAL_Q!"=="none" set "ACTUAL_Q=def"
+	if "!ACTUAL_Q!"=="none" (set "ACTUAL_Q=def" & set "AUTO_Q_FALLBACK=1")
 )
 set "PRESET=-preset:v p7"
 set "TUNING=-tune:v hq"
@@ -250,12 +250,13 @@ if "!ACTUAL_Q!"=="ulq"		(set "QUALITY=30" & set "TUNING=-tune:v ll" & set "PRESE
 exit /b
 
 :SETQUALITY-H264
+set "AUTO_Q_FALLBACK=0"
 set "ACTUAL_Q=!REQ_Q!"
 if "!REQ_Q!"=="auto" (
 	set "ACTUAL_Q=none"
 	echo "!FILENAME!" | findstr /c:"(19" >nul && set "ACTUAL_Q=hq"
 	echo "!FILENAME!" | findstr /c:"(20" >nul && set "ACTUAL_Q=def"
-	if "!ACTUAL_Q!"=="none" set "ACTUAL_Q=def"
+	if "!ACTUAL_Q!"=="none" (set "ACTUAL_Q=def" & set "AUTO_Q_FALLBACK=1")
 )
 set "PRESET=-preset:v p7"
 set "TUNING=-tune:v hq"
@@ -360,6 +361,11 @@ if "%5"=="artifacthq"		(set "FILTER=deblock=filter=strong")
 if "%5"=="superres"			(set "FILTER=scale=2*iw:2*ih:flags=lanczos")
 if "%5"=="superreshq"		(set "FILTER=scale=2*iw:2*ih:flags=spline")
 if "%5"=="log"				(set "FILTER=")
+if "%5"=="ushrp"			(set "FILTER=scale=2*iw:2*ih:flags=lanczos,unsharp=5:5:1.0")
+if "%5"=="ushrpdenoise"		(set "FILTER=scale=2*iw:2*ih:flags=lanczos,unsharp=5:5:1.0,atadenoise=0.05:0.05:0.3")
+if "%5"=="ushrpdenoisehq"	(set "FILTER=scale=2*iw:2*ih:flags=lanczos,unsharp=5:5:1.0,dctdnoiz=s=4.5,atadenoise=0.05:0.05:0.3")
+if "%5"=="ushrpartifact"	(set "FILTER=scale=2*iw:2*ih:flags=lanczos,unsharp=5:5:1.0,deblock=filter=weak")
+if "%5"=="ushrpartifacthq"	(set "FILTER=scale=2*iw:2*ih:flags=lanczos,unsharp=5:5:1.0,deblock=filter=strong")
 if "%5"=="f1"				(set "FILTER=")
 if "%5"=="f2"				(set "FILTER=")
 if "%5"=="f3"				(set "FILTER=")
@@ -384,6 +390,9 @@ if "%6"=="59fps"			(set "MODE=fps=59.94")
 if "%6"=="tweak"			(set "MODE=eq=brightness=0.0:contrast=1.0:gamma=1.0:saturation=1.0:hue=0.0")
 if "%6"=="brighter"			(set "MODE=eq=brightness=0.03")
 if "%6"=="darker"			(set "MODE=eq=brightness=-0.03")
+if "%6"=="lighter"			(set "MODE=eq=brightness=0.03")
+if "%6"=="vintage"			(set "MODE=curves=vintage")
+if "%6"=="linear"			(set "MODE=curves=g=0/0.5/1:r=0/0.5/1:b=0/0.5/1")
 if "%6"=="HDRtoSDR"			(set "MODE=zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=tonemap=bt2390:desat=0,zscale=t=bt709:m=bt709:r=tv,format=yuv420p")
 if "%6"=="HDRtoSDRR"		(set "MODE=zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=tonemap=reinhard:desat=0,zscale=t=bt709:m=bt709:r=tv,format=yuv420p")
 if "%6"=="HDRtoSDRM"		(set "MODE=zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=tonemap=mobius:desat=0,zscale=t=bt709:m=bt709:r=tv,format=yuv420p")
@@ -405,6 +414,13 @@ if "%7"=="mpeg2"			(set "DECODER=-hwaccel cuvid -c:v mpeg2_cuvid -deint adaptive
 if "%7"=="auto"				(set "DECODER=-hwaccel auto")
 exit /b
 
+:SETCHKENC
+set "CHECK_ENCODED=1"
+if "%8"=="def"     (set "CHECK_ENCODED=1")
+if "%8"=="true"    (set "CHECK_ENCODED=1")
+if "%8"=="false"   (set "CHECK_ENCODED=0")
+exit /b
+
 :VALIDATE-PARAMS
 set "PARAM_ERR=0"
 
@@ -415,6 +431,7 @@ call :VALIDATE_ONE "%4" TOK_CROP    crop    4
 call :VALIDATE_ONE "%5" TOK_FILTER  filter  5
 call :VALIDATE_ONE "%6" TOK_MODE    mode    6
 call :VALIDATE_ONE "%7" TOK_DECODER decoder 7
+call :VALIDATE_ONE "%8" TOK_CHKENC  chkenc  8
 
 exit /b
 
@@ -613,7 +630,7 @@ endlocal & exit /b
 :USAGE
 setlocal EnableDelayedExpansion
 cls
-echo Usage: %~n0 ^<encoder^> [audio=ac3] [quality=26] [crop=none] [filter=none] [mode=none] [decoder=auto]
+echo Usage: %~n0 ^<encoder^> [audio=ac3] [quality=26] [crop=none] [filter=none] [mode=none] [decoder=auto] [chkenc=true]
 echo.
 call :PRINT_TOK "encoder" "(required)"  TOK_ENCODER
 call :PRINT_TOK "audio"   "(def=ac3)"   TOK_AUDIO
@@ -622,13 +639,14 @@ call :PRINT_TOK "crop"    "(def=none)"  TOK_CROP
 call :PRINT_TOK "filter"  "(def=none)"  TOK_FILTER
 call :PRINT_TOK "mode"    "(def=none)"  TOK_MODE
 call :PRINT_TOK "decoder" "(def=auto)"  TOK_DECODER
+call :PRINT_TOK "chkenc"  "(def=true)"  TOK_CHKENC
 echo.
-echo Example: %~n0 ^| %UL%encoder%NO% ^| %UL%audio%NO%   ^| %UL%quality%NO% ^| %UL%crop%NO%    ^| %UL%filter%NO%  ^| %UL%mode%NO%    ^| %UL%decoder%NO% ^|
-echo Example: %~n0 ^| hevc    ^| ac3     ^|         ^|         ^|         ^|         ^|         ^|
-echo Example: %~n0 ^| hevc    ^| ac3     ^| auto    ^| auto    ^|         ^|         ^|         ^|
-echo Example: %~n0 ^| hevc    ^| copy    ^| auto    ^| 1080    ^| vsr     ^|         ^|         ^|
-echo Example: %~n0 ^| hevc    ^| copy    ^| hq      ^| 1080    ^| gauss   ^|         ^|         ^|
-echo Example: %~n0 ^| hevc    ^| copy    ^| def     ^| none    ^| none    ^| none    ^| sw      ^|
+echo Example: %~n0 ^| %UL%encoder%NO% ^| %UL%audio%NO%   ^| %UL%quality%NO% ^| %UL%crop%NO%    ^| %UL%filter%NO%  ^| %UL%mode%NO%    ^| %UL%decoder%NO% ^| %UL%chkenc%NO%  ^|
+echo Example: %~n0 ^| hevc    ^| ac3     ^|         ^|         ^|         ^|         ^|         ^|         ^|
+echo Example: %~n0 ^| hevc    ^| ac3     ^| auto    ^| auto    ^|         ^|         ^|         ^|         ^|
+echo Example: %~n0 ^| hevc    ^| copy    ^| auto    ^| 1080    ^| ushrp   ^|         ^|         ^|         ^|
+echo Example: %~n0 ^| hevc    ^| copy    ^| hq      ^| 1080    ^| gauss   ^|         ^| sw      ^| true    ^|
+echo Example: %~n0 ^| hevc    ^| copy    ^| def     ^| none    ^| none    ^| none    ^| sw      ^| false   ^|
 echo.
 endlocal
 goto :END
@@ -644,9 +662,10 @@ set "TOK_ENCODER=def hevc he10 h264 av1 av10"
 set "TOK_AUDIO=copy copy1 copy2 copy12 copy23 ac3 aac eac3"
 set "TOK_QUALITY=def auto hq uhq lq ulq"
 set "TOK_CROP=none auto 696 768 800 804 808 812 816 872 960 1012 1024 1036 1040 720 720p 720f 1080 1080p 1080f 2160 2160p 2160f 1348 1420 1440 1480 1500 1764 1780 1788 1792 1800 c1 c2 c3 c4 c5 c6"
-set "TOK_FILTER=none text reverb deblock edgelevel smooth smooth31 smooth63 nlmeans gauss gauss5 sharp denoise denoisehq artifact artifacthq superres superreshq log f1 f2 f3 f4 f5 f6"
-set "TOK_MODE=none deint yadif yadifbob double 23fps 25fps 30fps 60fps 29fps 59fps tweak brighter darker HDRtoSDR HDRtoSDRR HDRtoSDRM HDRtoSDRH dv dolby-vision"
+set "TOK_FILTER=none text reverb deblock edgelevel smooth smooth31 smooth63 nlmeans gauss gauss5 sharp denoise denoisehq artifact artifacthq superres superreshq ushrp ushrpdenoise ushrpdenoisehq ushrpartifact ushrpartifacthq log f1 f2 f3 f4 f5 f6"
+set "TOK_MODE=none deint yadif yadifbob double 23fps 25fps 30fps 60fps 29fps 59fps tweak brighter darker lighter vintage linear HDRtoSDR HDRtoSDRR HDRtoSDRM HDRtoSDRH dv dolby-vision"
 set "TOK_DECODER=def cuda cuvid vp8 vp9 vpx sw mpeg2 auto"
+set "TOK_CHKENC=def true false"
 exit /b
 
 :NOP
