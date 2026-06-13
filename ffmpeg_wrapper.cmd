@@ -607,7 +607,7 @@ set "INDENT=!SPACES:~0,%PAD1%!"
 
 set "LINE=!LEFT!["
 set FIRST=1
-set WRAP=120
+set WRAP=115
 
 for %%T in (!%TOKVAR%!) do (
 	if "!FIRST!"=="1" (
@@ -630,7 +630,14 @@ endlocal & exit /b
 :USAGE
 setlocal EnableDelayedExpansion
 cls
-echo Usage: %~n0 ^<encoder^> [audio=ac3] [quality=26] [crop=none] [filter=none] [mode=none] [decoder=auto] [chkenc=true]
+set "USAGE_PARAMS=^<encoder^> [audio=ac3] [quality=26] [crop=none] [filter=none] [mode=none] [decoder=auto] [chkenc=true]"
+set "EXAMPLE_PARAMS=hevc ac3 auto auto none none auto false"
+if defined CALLER_NAME (
+    set "COMMAND=%CALLER_NAME%"
+) else (
+    set "COMMAND=%~n0"
+)
+echo Usage: %COMMAND% %USAGE_PARAMS%
 echo.
 call :PRINT_TOK "encoder" "(required)"  TOK_ENCODER
 call :PRINT_TOK "audio"   "(def=ac3)"   TOK_AUDIO
@@ -641,12 +648,14 @@ call :PRINT_TOK "mode"    "(def=none)"  TOK_MODE
 call :PRINT_TOK "decoder" "(def=auto)"  TOK_DECODER
 call :PRINT_TOK "chkenc"  "(def=true)"  TOK_CHKENC
 echo.
-echo Example: %~n0 ^| %UL%encoder%NO% ^| %UL%audio%NO%   ^| %UL%quality%NO% ^| %UL%crop%NO%    ^| %UL%filter%NO%  ^| %UL%mode%NO%    ^| %UL%decoder%NO% ^| %UL%chkenc%NO%  ^|
-echo Example: %~n0 ^| hevc    ^| ac3     ^|         ^|         ^|         ^|         ^|         ^|         ^|
-echo Example: %~n0 ^| hevc    ^| ac3     ^| auto    ^| auto    ^|         ^|         ^|         ^|         ^|
-echo Example: %~n0 ^| hevc    ^| copy    ^| auto    ^| 1080    ^| ushrp   ^|         ^|         ^|         ^|
-echo Example: %~n0 ^| hevc    ^| copy    ^| hq      ^| 1080    ^| gauss   ^|         ^| sw      ^| true    ^|
-echo Example: %~n0 ^| hevc    ^| copy    ^| def     ^| none    ^| none    ^| none    ^| sw      ^| false   ^|
+echo Example: %COMMAND% ^| %UL%encoder%NO% ^| %UL%audio%NO%   ^| %UL%quality%NO% ^| %UL%crop%NO%    ^| %UL%filter%NO%  ^| %UL%mode%NO%    ^| %UL%decoder%NO% ^| %UL%chkenc%NO%  ^|
+echo Example: %COMMAND% ^| hevc    ^| ac3     ^|         ^|         ^|         ^|         ^|         ^|         ^|
+echo Example: %COMMAND% ^| hevc    ^| ac3     ^| auto    ^| auto    ^|         ^|         ^|         ^|         ^|
+echo Example: %COMMAND% ^| hevc    ^| copy    ^| auto    ^| 1080    ^| ushrp   ^|         ^|         ^|         ^|
+echo Example: %COMMAND% ^| hevc    ^| copy    ^| hq      ^| 1080    ^| gauss   ^|         ^| sw      ^| true    ^|
+echo Example: %COMMAND% ^| hevc    ^| copy    ^| def     ^| none    ^| none    ^| none    ^| sw      ^| false   ^|
+echo.
+echo Example: %COMMAND% %EXAMPLE_PARAMS%
 echo.
 endlocal
 goto :END
