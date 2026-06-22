@@ -208,7 +208,8 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if exist "%%I" if not exist
 		%DBG%   AUDIO  = "!AUDIO!"
 
 		if not defined SKIP_FILE (
-			ffmpeg %FF_FLAGS% !DECODER_PARAM! -i "%%I" -map 0 -c:v %ENCODER% -profile:v %PROFILE% -level:v auto -rc:v vbr -cq:v !QUALITY! !PRESET! -multipass:v fullres -spatial_aq:v 1 -temporal_aq:v 1 -aq-strength:v 10 -rc-lookahead:v 24 !TUNING! !B_REF! !VF_PARAM! !AUDIO_ARGS! -c:s copy -map_metadata 0 -map_chapters 0 "_Converted\%%~nI.mkv"
+			echo ffmpeg %FF_FLAGS% !DECODER_PARAM! -i "%%I" -map 0 -c:v %ENCODER% -profile:v %PROFILE% -level:v auto -rc:v vbr -cq:v !QUALITY! !PRESET! -multipass:v fullres -spatial_aq:v 1 -temporal_aq:v 1 -aq-strength:v 10 -rc-lookahead:v 24 !TUNING! !B_REF! !VF_PARAM! !AUDIO_ARGS! -c:s copy -map_metadata 0 -map_chapters 0 "_Converted\%%~nI.mkv"
+            ffmpeg %FF_FLAGS% !DECODER_PARAM! -i "%%I" -map 0 -c:v %ENCODER% -profile:v %PROFILE% -level:v auto -rc:v vbr -cq:v !QUALITY! !PRESET! -multipass:v fullres -spatial_aq:v 1 -temporal_aq:v 1 -aq-strength:v 10 -rc-lookahead:v 24 !TUNING! !B_REF! !VF_PARAM! !AUDIO_ARGS! -c:s copy -map_metadata 0 -map_chapters 0 "_Converted\%%~nI.mkv"
 			if errorlevel 1 exit /b !ERRORLEVEL!
 
 			if exist "_Converted\%%~nI.mkv" (
@@ -332,7 +333,7 @@ if "%4"=="1780"				(set "CROP_VAL=crop=1780:1080:70:0")
 if "%4"=="1788"				(set "CROP_VAL=crop=1788:1080:66:0")
 if "%4"=="1792"				(set "CROP_VAL=crop=1792:1080:64:0")
 if "%4"=="1800"				(set "CROP_VAL=crop=1800:1080:60:0")
-if "%4"=="c1"				(set "CROP_VAL=")
+if "%4"=="c1"				(set "CROP_VAL=crop=1920:804:0:2")
 if "%4"=="c2"				(set "CROP_VAL=")
 if "%4"=="c3"				(set "CROP_VAL=")
 if "%4"=="c4"				(set "CROP_VAL=")
@@ -402,8 +403,8 @@ if "%6"=="dolby-vision"		(set "MODE=libplacebo=tonemapping=bt2390")
 exit /b
 
 :SETDECODER
-set "DECODER=-hwaccel cuda -hwaccel_output_format cuda"
-if "%7"=="def"				(set "DECODER=-hwaccel cuda -hwaccel_output_format cuda")
+set "DECODER=-hwaccel auto"
+if "%7"=="def"				(set "DECODER=-hwaccel auto")
 if "%7"=="cuda"				(set "DECODER=-hwaccel cuda -hwaccel_output_format cuda")
 if "%7"=="cuvid"			(set "DECODER=-hwaccel cuvid")
 if "%7"=="vp8"				(set "DECODER=-hwaccel cuvid -c:v vp8_cuvid")
