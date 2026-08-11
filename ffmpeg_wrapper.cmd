@@ -266,7 +266,7 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if exist "%%I" if not exist
 	set "AUTO_RES_H="
 	set "SRC_CODEC="
 
-	for /f "usebackq delims=" %%C in (`cmd /c mediainfo "--Inform=Video;%Format%" "%%I"`) do (
+	for /f "usebackq delims=" %%C in (`cmd /c mediainfo "--Inform=Video;%%Format%%" "%%I" 2^>nul`) do (
 		set "SRC_CODEC=%%C"
 	)
 
@@ -285,15 +285,36 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if exist "%%I" if not exist
 
 	if defined TARGET_DIR (
 		call :ENSURE_DIR "!TARGET_DIR!"
-		set "MOVED_FILE=!TARGET_DIR!\%%~nxI"
-		echo %ESC%[91mWARNING: Source already encoded as !SRC_CODEC!. Moving file to !TARGET_DIR!.%ESC%[0m
+		set "MOVED_FILE=!TARGET_DIR!\%%~nI.mkv"
+		REM Sentinel 'x' prefix verhindert cmd.exe-Parse-Bug: 'if /i "x"=="y"' mit zwei
+		REM benachbarten Quotes wird sonst als '"."' missinterpretiert.
+		if /i "x%%~xI"=="x.mkv" (
+			echo %ESC%[91mWARNING: Source already encoded as !SRC_CODEC!. Moving to !TARGET_DIR!.%ESC%[0m
+		) else (
+			echo %ESC%[91mWARNING: Source already encoded as !SRC_CODEC!. Re-muxing to !TARGET_DIR!.%ESC%[0m
+		)
 		echo.
-		move /Y "%%I" "!MOVED_FILE!" >nul
-		
+
+		REM Re-mux to normalize container. .mp4/.mov/.avi/.webm in .mkv umbenennen wuerde nicht
+		REM funktionieren, weil der Inhalt kein echtes Matroska ist — EDIT_TAGS (mkvpropedit) wuerde
+		REM scheitern und die Datei wandert in _Check. mkvmerge ist die richtige Loesung: schnell
+		REM (Sekunden), kein Re-Encode, normales MKV-Container-Output.
+		if /i "x%%~xI"=="x.mkv" (
+			move /Y "%%I" "!MOVED_FILE!" >nul
+		) else (
+			mkvmerge -o "!MOVED_FILE!" "%%I" >nul 2>&1
+			if exist "!MOVED_FILE!" (
+				if /i not "%%I"=="!MOVED_FILE!" del /F "%%I" >nul
+			) else (
+				echo %ESC%[91mWARNING: mkvmerge failed, falling back to plain move ^(file may be broken^).%ESC%[0m
+				move /Y "%%I" "!MOVED_FILE!" >nul
+			)
+		)
+
 		setlocal DisableDelayedExpansion
 		powershell -command "write-output ('file:///' + (get-item '%%~dpI').FullName.Replace('\', '/') -replace [char]34, [char]7 -replace ' ', '%%20' -replace '#', '%%23' -replace [char]39, '%%27' -replace '!', '%%21' -replace '\(', '%%28' -replace '\)', '%%29')"
 		endlocal
-		
+
 		set "SKIP_FILE=1"
 		if "%EDIT_TAGS%"=="1" call :EDIT_TAGS "!MOVED_FILE!"
 		call :REMUX_IF_NEEDED "%%I" "!MOVED_FILE!"
