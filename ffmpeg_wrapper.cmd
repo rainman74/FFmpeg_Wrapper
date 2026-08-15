@@ -286,8 +286,6 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if exist "%%I" if not exist
 	if defined TARGET_DIR (
 		call :ENSURE_DIR "!TARGET_DIR!"
 		set "MOVED_FILE=!TARGET_DIR!\%%~nI.mkv"
-		REM Sentinel 'x' prefix verhindert cmd.exe-Parse-Bug: 'if /i "x"=="y"' mit zwei
-		REM benachbarten Quotes wird sonst als '"."' missinterpretiert.
 		if /i "x%%~xI"=="x.mkv" (
 			echo %ESC%[91mWARNING: Source already encoded as !SRC_CODEC!. Moving to !TARGET_DIR!.%ESC%[0m
 		) else (
@@ -295,10 +293,6 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if exist "%%I" if not exist
 		)
 		echo.
 
-		REM Re-mux to normalize container. .mp4/.mov/.avi/.webm in .mkv umbenennen wuerde nicht
-		REM funktionieren, weil der Inhalt kein echtes Matroska ist — EDIT_TAGS (mkvpropedit) wuerde
-		REM scheitern und die Datei wandert in _Check. mkvmerge ist die richtige Loesung: schnell
-		REM (Sekunden), kein Re-Encode, normales MKV-Container-Output.
 		if /i "x%%~xI"=="x.mkv" (
 			move /Y "%%I" "!MOVED_FILE!" >nul
 		) else (
@@ -577,7 +571,6 @@ for /f "usebackq" %%V in (`mediainfo "--Inform=General;%%VideoCount%%" "!FILE!" 
 
 %DBG% REMUX_IF_NEEDED: file=!FILE! source=!SOURCE! ff_streams=!FF_STREAMS! mi_video=!MI_VIDEO_COUNT!
 
-REM Branch 1: file is completely broken (ffprobe failed or saw 0 streams)
 %DBG% REMUX_IF_NEEDED: branch_check FF_STREAMS=[!FF_STREAMS!] MI_VIDEO=[!MI_VIDEO_COUNT!]
 if "!FF_STREAMS!"=="" goto :BRANCH_BROKEN
 if "!FF_STREAMS!"=="0" goto :BRANCH_BROKEN
