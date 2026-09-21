@@ -416,7 +416,7 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if exist "%%I" if not exist
 		%DBG%   AUDIO  = "!AUDIO!"
 
 		if not defined SKIP_FILE (
-            ffmpeg %FF_FLAGS% !DECODER_PARAM! -i "%%I" -map 0 -c:v %ENCODER% -profile:v %PROFILE% -level:v auto -rc:v vbr -cq:v !QUALITY! !PRESET! -multipass:v fullres -spatial_aq:v 1 -temporal_aq:v 1 -aq-strength:v 10 -rc-lookahead:v 24 !TUNING! !B_REF! !VF_PARAM! !AUDIO_ARGS! -c:s copy -map_metadata 0 -map_chapters 0 "_Converted\%%~nI.mkv"
+            ffmpeg %FF_FLAGS% !DECODER_PARAM! -i "%%I" -map 0 -c:v %ENCODER% -profile:v %PROFILE% -level:v auto -rc:v vbr -cq:v !QUALITY! !PRESET! -multipass:v fullres -spatial-aq:v 1 -temporal-aq:v 1 -aq-strength:v 10 -rc-lookahead:v 24 !TUNING! !B_REF! !VF_PARAM! !AUDIO_ARGS! -c:s copy -map_metadata 0 -map_chapters 0 "_Converted\%%~nI.mkv"
 			if errorlevel 1 exit /b !ERRORLEVEL!
 
 			if exist "_Converted\%%~nI.mkv" (
