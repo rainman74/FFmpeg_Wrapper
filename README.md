@@ -9,9 +9,10 @@ Batch-Videotranscoding-Wrapper für FFmpeg mit NVENC-Hardwareencoding, automatis
 - **Auto-Skip** — Bereits im Zielcodec vorliegende Dateien werden ohne Neukodierung verschoben
 - **Audio-Encoding** — AC3, AAC, E-AC3 oder direkte Kopie (auch selektive Streams); dynamische Erkennung pro Stream
 - **Videofilter** — Denoise, Sharpening, Upscaling, Deinterlacing, HDR→SDR u.v.m.
+- **AviSynth** — `*.avs`-Skripte werden ohne Codec-Erkennung direkt von FFmpeg eingelesen (ohne HW-Beschleunigung)
 - **Tag-Bereinigung** — Automatische MKV-Metadaten-Normalisierung via `mkvpropedit`
-- **Fehlerbehandlung** — Nicht analysierbare Dateien landen in `_Check/` zur manuellen Prüfung
-- **Debug-Modus** — Detaillierte Ausgabe des Auto-Crop-Prozesses via `DEBUG_AUTOCROP=1`
+- **Fehlerbehandlung** — Nicht analysierbare Dateien (außer `*.avs`) landen in `_Check/` zur manuellen Prüfung
+- **Debug-Modus** — Detaillierte Ausgabe (Auto-Crop, Parameter, Zwischenergebnisse) via `set "DEBUG=1"` in der Wrapper-Datei
 
 ## Voraussetzungen
 
@@ -22,6 +23,12 @@ ffmpeg.exe / ffprobe.exe
 mediainfo.exe
 mkvpropedit.exe / mkvmerge.exe
 ```
+
+## Eingabeformate
+
+Im Arbeitsverzeichnis werden `*.mkv`, `*.mp4`, `*.mpg`, `*.mov`, `*.avi`, `*.webm` und `*.avs` verarbeitet; die Ausgabe landet als `_Converted\<Dateiname>.mkv`.
+
+**AviSynth (`*.avs`):** Bei Skripten entfällt die mediainfo-Codec-Erkennung. FFmpeg liest das Skript direkt ein – die `decoder`-Auswahl wird für AVS ignoriert (kein `-hwaccel`), und der `chkenc`-Check wird übersprungen. Das Audio-Mapping ist optional (`-map 0:a?`), damit Skripte ohne eigenen Audiostream keinen Mapping-Fehler auslösen. Schlägt bei `crop=auto` die Probe fehl, wird ohne Auto-Crop weiterkodiert; das Skript wird **nicht** nach `_Check` verschoben.
 
 ## Aufruf
 
@@ -37,7 +44,7 @@ ffmpeg_wrapper <encoder> [audio] [quality] [crop] [filter] [mode] [decoder] [chk
 | 4 | **crop** | `none` | Crop-Modus / Zielauflösung |
 | 5 | **filter** | `none` | Videofilter (Nachbearbeitung) |
 | 6 | **mode** | `none` | Spezialmodi (Deinterlace, FPS, HDR→SDR, Dolby Vision) |
-| 7 | **decoder** | `cuda` | Hardware- oder Software-Decoder |
+| 7 | **decoder** | `auto` | Hardware- oder Software-Decoder |
 | 8 | **chkenc** | `true` | Bereits kodierte Dateien erkennen |
 
 ### Parameter-Details
@@ -97,7 +104,7 @@ ffmpeg_wrapper <encoder> [audio] [quality] [crop] [filter] [mode] [decoder] [chk
 | `2160f` | 3840x2160 (fest) |
 
 **Letterbox-Standards (1920x1080 Basis mit horizontalem Crop):**
-`1440`, `1348`, `1420`, `1480`, `1500`, `1764`, `1780`, `1788`, `1792`, `1800`
+`1440`, `1440f`, `1348`, `1420`, `1480`, `1500`, `1764`, `1780`, `1788`, `1792`, `1800`
 
 **Aliase (alle = kein Crop):** `c1`, `c2`, `c3`, `c4`, `c5`, `c6`
 
@@ -145,6 +152,7 @@ ffmpeg_wrapper <encoder> [audio] [quality] [crop] [filter] [mode] [decoder] [chk
 | `29fps` | FPS auf 29,97 erzwingen |
 | `59fps` | FPS auf 59,94 erzwingen |
 | `tweak` | Helligkeit/Kontrast/Gamma/Sättigung anpassen (`eq`) |
+| `brighter` | Aufhellen (`eq=brightness=0.03`, identisch zu `lighter`) |
 | `lighter` | Aufhellen (`eq=brightness=0.03`) |
 | `darker` | Abdunkeln (`eq=brightness=-0.03`) |
 | `vintage` | Curves Vintage-Look |
@@ -158,14 +166,17 @@ ffmpeg_wrapper <encoder> [audio] [quality] [crop] [filter] [mode] [decoder] [chk
 #### decoder (Position 7)
 | Wert | Verhalten |
 |------|-----------|
-| `def` / `cuda` | Hardware-Decoder (`-hwaccel cuda -hwaccel_output_format cuda`) |
+| `def` | Automatische Decoderwahl (`-hwaccel auto`) |
+| `cuda` | Hardware-Decoder (`-hwaccel cuda -hwaccel_output_format cuda`) |
 | `cuvid` | CUVID-Decoder (`-hwaccel cuvid`) |
-| `sw` | Software-Decoder (kein Hardware-Beschleuniger) |
-| `auto` | Automatische Decoderwahl (`-hwaccel auto`) |
 | `vp8` | CUVID + vp8\_cuvid |
 | `vp9` | CUVID + vp9\_cuvid |
 | `vpx` | CUVID + libvpx |
+| `sw` | Software-Decoder (kein Hardware-Beschleuniger) |
 | `mpeg2` | CUVID + mpeg2\_cuvid + adaptives Deinterlacing |
+| `auto` | Automatische Decoderwahl (`-hwaccel auto`) |
+
+> Bei `*.avs`-Quellen wird kein Hardware-Decoder verwendet; die Auswahl wird ignoriert.
 
 #### chkenc (Position 8)
 | Wert | Verhalten |
@@ -197,8 +208,10 @@ Nach der Kodierung werden automatisch MKV-Metadaten via `mkvpropedit` normalisie
 
 ## Debug-Modus
 
+In `ffmpeg_wrapper.cmd` (INIT-Bereich) umstellen:
+
 ```cmd
-set "DEBUG_AUTOCROP=1"
+set "DEBUG=1"
 ```
 
 Aktiviert detaillierte Ausgabe der Crop-Erkennung, FFmpeg-Parameter und Zwischenergebnisse.
@@ -206,14 +219,14 @@ Aktiviert detaillierte Ausgabe der Crop-Erkennung, FFmpeg-Parameter und Zwischen
 ## Arbeitsablauf
 
 1. Alle Videodateien im aktuellen Ordner werden nacheinander verarbeitet
-2. Pro Datei: Codec-Prüfung → ggf. Auto-Crop → Encoding nach `_Converted/<name>.mkv`
+2. Pro Datei: Codec-Prüfung (bei `*.avs` entfällt sie) → ggf. Auto-Crop → Encoding nach `_Converted/<name>.mkv`
 3. Nach Encoding: 5s Pause, dann nächste Datei
 4. Am Ende: Anzeige der Speicherersparnis (komprimierte vs. originale Größe)
 
 ## Fehlerbehandlung
 
-- **Unbekannter Codec** → Datei wird nach `_Check/` verschoben
-- **Crop-Probe fehlgeschlagen** → Datei wird nach `_Check/` verschoben
+- **Unbekannter Codec** → Datei wird nach `_Check/` verschoben (nicht bei `*.avs` – dort entfällt die Codec-Erkennung)
+- **Crop-Probe fehlgeschlagen** → Datei wird nach `_Check/` verschoben (bei `*.avs`: Warnung, Weiterkodierung ohne Crop)
 - **Asymmetrische schwarze Balken** → Datei wird nach `_Check/` verschoben
 - **Quelle zu klein** (< 1280×696) → Datei wird nach `_Check/` verschoben
 - **Tag-Edit fehlgeschlagen** → Datei wird nach `_Check/` verschoben

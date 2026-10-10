@@ -254,7 +254,7 @@ exit /b
 :MAIN
 call :ENSURE_DIR "_Converted"
 set "FOUND=0"
-for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if exist "%%I" if not exist "_Converted\%%~nI.mkv" (
+for %%I in (*.avs *.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if exist "%%I" if not exist "_Converted\%%~nI.mkv" (
 	echo %ESC%[101;93m %%I %ESC%[0m
 
 	set "FOUND=1"
@@ -267,8 +267,16 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if exist "%%I" if not exist
 	set "AUTO_RES_H="
 	set "SRC_CODEC="
 
-	for /f "usebackq delims=" %%C in (`cmd /c mediainfo "--Inform=Video;%%Format%%" "%%I" 2^>nul`) do (
-		set "SRC_CODEC=%%C"
+	set "IS_AVS=0"
+	if /i "%%~xI"==".avs" set "IS_AVS=1"
+
+	if "!IS_AVS!"=="1" (
+		rem AviSynth-Skript: Codec-Erkennung via mediainfo nicht moeglich, wird uebersprungen.
+		set "SRC_CODEC=AVS"
+	) else (
+		for /f "usebackq delims=" %%C in (`cmd /c mediainfo "--Inform=Video;%%Format%%" "%%I" 2^>nul`) do (
+			set "SRC_CODEC=%%C"
+		)
 	)
 
 	if not defined SRC_CODEC (
@@ -349,11 +357,16 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if exist "%%I" if not exist
 			call :RUN_PROBE "%%I"
 
 			if "!PROBE_OK!"=="0" (
-				%DBG% RUN_PROBE failed, moving file to _Check
-				echo %ESC%[91mWARNING: Probe failed or source too small. Moving file to _Check.%ESC%[0m
-				call :ENSURE_DIR "_Check"
-				move /Y "%%I" "_Check\" >nul
-				set "SKIP_FILE=1"
+				if "!IS_AVS!"=="1" (
+					%DBG% RUN_PROBE failed for AviSynth script, continuing without crop
+					echo %ESC%[91mWARNING: Probe failed for AviSynth script - continuing without auto-crop.%ESC%[0m
+				) else (
+					%DBG% RUN_PROBE failed, moving file to _Check
+					echo %ESC%[91mWARNING: Probe failed or source too small. Moving file to _Check.%ESC%[0m
+					call :ENSURE_DIR "_Check"
+					move /Y "%%I" "_Check\" >nul
+					set "SKIP_FILE=1"
+				)
 			) else (
 				if "!AUTO_CROP!"=="0:0:0:0" (
 					%DBG% AUTO-CROP: no crop detected, passthrough
@@ -408,7 +421,7 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if exist "%%I" if not exist
 		powershell -command "write-output ('file:///' + (get-item '%%~dpI').FullName.Replace('\', '/') -replace [char]34, [char]7 -replace ' ', '%%20' -replace '#', '%%23' -replace [char]39, '%%27' -replace '!', '%%21' -replace '\(', '%%28' -replace '\)', '%%29')"
 		endlocal
 
-		mediainfo --Inform="General;%%Duration/String2%% - %%FileSize/String4%%" "%%I"
+		if "!IS_AVS!"=="0" mediainfo --Inform="General;%%Duration/String2%% - %%FileSize/String4%%" "%%I"
 
 		%DBG% FFmpeg parameters:
 		%DBG%   CROP   = "!CROP_VAL!"
@@ -416,7 +429,9 @@ for %%I in (*.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if exist "%%I" if not exist
 		%DBG%   AUDIO  = "!AUDIO!"
 
 		if not defined SKIP_FILE (
-            ffmpeg %FF_FLAGS% !DECODER_PARAM! -i "%%I" -map 0:v:0 -map 0:a -map 0:s? -c:v %ENCODER% -profile:v %PROFILE% -level:v auto -rc:v vbr -cq:v !QUALITY! !PRESET! -multipass:v fullres -spatial-aq:v 1 -temporal-aq:v 1 -aq-strength:v 10 -rc-lookahead:v 24 !TUNING! !B_REF! !VF_PARAM! !AUDIO_ARGS! -c:s copy -map_metadata 0 -map_chapters 0 "_Converted\%%~nI.mkv"
+            set "DEC_PARAM=!DECODER_PARAM!"
+            if "!IS_AVS!"=="1" set "DEC_PARAM="
+            ffmpeg %FF_FLAGS% !DEC_PARAM! -i "%%I" -map 0:v:0 -map 0:a? -map 0:s? -c:v %ENCODER% -profile:v %PROFILE% -level:v auto -rc:v vbr -cq:v !QUALITY! !PRESET! -multipass:v fullres -spatial-aq:v 1 -temporal-aq:v 1 -aq-strength:v 10 -rc-lookahead:v 24 !TUNING! !B_REF! !VF_PARAM! !AUDIO_ARGS! -c:s copy -map_metadata 0 -map_chapters 0 "_Converted\%%~nI.mkv"
 			if errorlevel 1 exit /b !ERRORLEVEL!
 
 			if exist "_Converted\%%~nI.mkv" (
