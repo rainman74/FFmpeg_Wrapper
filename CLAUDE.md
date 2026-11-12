@@ -46,7 +46,7 @@ Batch-Wrapper für `ffmpeg.exe` (NVENC-Hardwareencoding) plus zwei Master-Conver
 ## Deployment / Push
 
 - `.___PUSH___.cmd` im jeweiligen Repo-Root ausführen: xcopy `*.cmd` → `%CMDPATH%\bin`, `git add .`, `git commit -m "Updates"`, `git push`
-- **Repo ist maßgeblich:** `. ___PUSH___.cmd` überschreibt `bin` direkt mit der Repo-Version. Private Token-Werte (im `ffmpeg_wrapper`: `c1`–`c6`/`f1`–`f6`; im `nvencc64_wrapper` des Schwester-Repos `smooth`/`nlmeans`/`f1`–`f3`) sind nur temporäre Filter-Spielereien — kein Sichern nötig, bei Bedarf neu setzen
+- **Repo ist maßgeblich:** `. ___PUSH___.cmd` überschreibt `bin` direkt mit der Repo-Version. **Custom Crops und Filter (`cX`/`fX`) sind nicht zu beachten** — im `ffmpeg_wrapper` (`c1`–`c6`/`f1`–`f6`) wie im `nvencc64_wrapper` des Schwester-Repos (`smooth`/`nlmeans`/`f1`–`f3`) sind das nur temporäre Werte, die jederzeit zurückgesetzt werden; maßgeblich ist immer die Repo-/Standardversion, kein Sichern/Zurückspielen nötig
 
 ## Fallstricke (aus der Praxis)
 
