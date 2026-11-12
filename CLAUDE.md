@@ -74,3 +74,14 @@ Bei CTRL+C während der Konvertierung bleiben keine unvollständigen Dateien unt
 - **Aufräumen beim Start**: `MAIN` löscht `.part`-Reste (`_Converted\*.part.*`, `*.part.mkv`, `*.part.gif`, `*_mask.part.png`, `*_clip.part.mkv`).
 - **Grenze**: Die „Terminate batch job (Y/N)"-Beendigung von cmd lässt sich nicht abfangen — dann bleibt höchstens ein `.part`-Rest liegen, der beim nächsten Lauf entfernt wird.
 - **Betroffen**: `ffmpeg_audio_converter` (normal/`mp3`/`silence`), `ffmpeg_video_converter` (burn/gif/lut/mask/extract/srt_merge/strip/cut/join), `ffmpeg_wrapper` (Encode + mkvmmerge-Re-Mux im Check-Encoded-Block), `ffmpeg_avs`; im NVEncC-Repo analog `nvencc64_wrapper`; dazu `bin\cube.cmd` und `bin\clut.cmd`.
+
+## Rollback: Version ohne Part-Handling
+
+- **Part-Handling eingeführt**: Commit **`b511ade`** (Temp-Datei `.part.*` + Rename, Fehlerpfad ohne `_Check`-Move); danach **`9aea16d`** (Exitcode-Auswertung `RC=!ERRORLEVEL!` inkl. CTRL+C-Status `0xC000013A`).
+- **Letzter Stand OHNE Part-Handling: Commit `803938d`** (davor: `21364cf`/`362410c` = nur CLAUDE.md-Doku).
+- **Rollback der Skripte**:
+  ```
+  git checkout 803938d -- ffmpeg_audio_converter.cmd ffmpeg_video_converter.cmd ffmpeg_wrapper.cmd ffmpeg_avs.cmd
+  ```
+  danach committen/pushen (Repo `FFmpeg_Wrapper`).
+- **Achtung**: `bin\cube.cmd` und `bin\clut.cmd` sind **nicht** versioniert (nur im `bin`) — für einen Rollback dort die Vor-Version manuell wiederherstellen (Part-Handling: `_512.part.png`/`.part.cube` bzw. `*_haldclutN.part.png`).
