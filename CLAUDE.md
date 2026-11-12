@@ -62,3 +62,14 @@ Batch-Wrapper für `ffmpeg.exe` (NVENC-Hardwareencoding) plus zwei Master-Conver
 - 2026-11-12: `ffmpeg_converter.cmd` → `ffmpeg_audio_converter.cmd` umbenannt (der alte Dateiname existiert nicht mehr; Profile ac3/aac/ac32x/ac51x/eng/ger/copy + `mp3`, `silence`; `dual`/`ac3eng`/`aaceng` entfernt)
 - 2026-11-12: `ffmpeg_video_converter.cmd` neu (srt_extract/srt_burn/srt_merge/strip/gif/lut/mask/cut/join); `funvc.cmd` im bin
 - 2026-11-12: `No files found.` und `[INFO] Savings`-Ausgaben aus Wrapper und Convertern entfernt
+
+## Abbruch-/CTRL+C-Sicherheit (Stand 2026-11-13)
+
+Bei CTRL+C während der Konvertierung bleiben keine unvollständigen Dateien unter dem finalen Namen liegen und die Quelle wird nicht mehr nach `_Check` verschoben:
+
+- **Temp-Datei + Rename**: Jede Ausgabe wird zuerst als `<Name>.part.<ext>` geschrieben (in `_Converted`, bei `mask`/`join`/`cut` im Arbeitsordner) und **erst nach Erfolg** auf den finalen Namen umbenannt.
+- **Fehlerpfad**: Bei ffmpeg-Fehler/Abbruch wird die Teil-Ausgabe **gelöscht**, eine WARNUNG ausgegeben und die **Quelle bleibt stehen** (`WARNING: Conversion failed or cancelled. Source not moved.`). Kein `_Check`-Move mehr.
+- **`_Check` bleibt** ausschließlich für echte **Vorprüf-Fehler** (z. B. Codec nicht erkennbar, Probe fehlgeschlagen) — sowohl in den Convertern (soweit vorhanden) als auch in den Wrappern.
+- **Aufräumen beim Start**: `MAIN` löscht `.part`-Reste (`_Converted\*.part.*`, `*.part.mkv`, `*.part.gif`, `*_mask.part.png`, `*_clip.part.mkv`).
+- **Grenze**: Die „Terminate batch job (Y/N)"-Beendigung von cmd lässt sich nicht abfangen — dann bleibt höchstens ein `.part`-Rest liegen, der beim nächsten Lauf entfernt wird.
+- **Betroffen**: `ffmpeg_audio_converter` (normal/`mp3`/`silence`), `ffmpeg_video_converter` (burn/gif/lut/mask/extract/srt_merge/strip/cut/join), `ffmpeg_wrapper` (Encode + mkvmmerge-Re-Mux im Check-Encoded-Block), `ffmpeg_avs`; im NVEncC-Repo analog `nvencc64_wrapper`; dazu `bin\cube.cmd` und `bin\clut.cmd`.

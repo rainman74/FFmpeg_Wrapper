@@ -253,6 +253,7 @@ exit /b
 
 :MAIN
 call :ENSURE_DIR "_Converted"
+if exist "_Converted\*.part.mkv" del /Q "_Converted\*.part.mkv" >nul 2>&1
 set "FOUND=0"
 for %%I in (*.avs *.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if exist "%%I" if not exist "_Converted\%%~nI.mkv" (
 	echo %ESC%[101;93m %%I %ESC%[0m
@@ -305,8 +306,10 @@ for %%I in (*.avs *.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if exist "%%I" if not
 		if /i "x%%~xI"=="x.mkv" (
 			move /Y "%%I" "!MOVED_FILE!" >nul
 		) else (
-			mkvmerge -o "!MOVED_FILE!" "%%I" >nul 2>&1
-			if exist "!MOVED_FILE!" (
+			set "MOVED_PART=!MOVED_FILE!.part.mkv"
+			mkvmerge -o "!MOVED_PART!" "%%I" >nul 2>&1
+			if exist "!MOVED_PART!" (
+				move /Y "!MOVED_PART!" "!MOVED_FILE!" >nul
 				if /i not "%%I"=="!MOVED_FILE!" del /F "%%I" >nul
 			) else (
 				echo %ESC%[91mWARNING: mkvmerge failed, falling back to plain move ^(file may be broken^).%ESC%[0m
@@ -431,8 +434,21 @@ for %%I in (*.avs *.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if exist "%%I" if not
 		if not defined SKIP_FILE (
             set "DEC_PARAM=!DECODER_PARAM!"
             if "!IS_AVS!"=="1" set "DEC_PARAM="
-            ffmpeg %FF_FLAGS% !DEC_PARAM! -i "%%I" -map 0:v:0 -map 0:a? -map 0:s? -c:v %ENCODER% -profile:v %PROFILE% -level:v auto -rc:v vbr -cq:v !QUALITY! !PRESET! -multipass:v fullres -spatial-aq:v 1 -temporal-aq:v 1 -aq-strength:v 10 -rc-lookahead:v 24 !TUNING! !B_REF! !VF_PARAM! !AUDIO_ARGS! -c:s copy -map_metadata 0 -map_chapters 0 "_Converted\%%~nI.mkv"
-			if errorlevel 1 exit /b !ERRORLEVEL!
+            ffmpeg %FF_FLAGS% !DEC_PARAM! -i "%%I" -map 0:v:0 -map 0:a? -map 0:s? -c:v %ENCODER% -profile:v %PROFILE% -level:v auto -rc:v vbr -cq:v !QUALITY! !PRESET! -multipass:v fullres -spatial-aq:v 1 -temporal-aq:v 1 -aq-strength:v 10 -rc-lookahead:v 24 !TUNING! !B_REF! !VF_PARAM! !AUDIO_ARGS! -c:s copy -map_metadata 0 -map_chapters 0 "_Converted\%%~nI.part.mkv"
+			if errorlevel 1 (
+				if exist "_Converted\%%~nI.part.mkv" del /Q "_Converted\%%~nI.part.mkv" >nul 2>&1
+				echo %ESC%[91mWARNING: Encoding failed or cancelled. Source not moved.%ESC%[0m
+				exit /b
+			)
+			if not exist "_Converted\%%~nI.part.mkv" (
+				echo %ESC%[91mWARNING: No output file.%ESC%[0m
+				exit /b
+			)
+			move /Y "_Converted\%%~nI.part.mkv" "_Converted\%%~nI.mkv" >nul
+			if not exist "_Converted\%%~nI.mkv" (
+				echo %ESC%[91mWARNING: Rename failed.%ESC%[0m
+				exit /b
+			)
 
 			if exist "_Converted\%%~nI.mkv" (
 				if "%EDIT_TAGS%"=="1" call :EDIT_TAGS "_Converted\%%~nI.mkv"

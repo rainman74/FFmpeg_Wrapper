@@ -49,6 +49,11 @@ if /i "!MODE!"=="CUT" (
 	goto :END
 )
 call :ENSURE_DIR "_Converted"
+if exist "_Converted\*.part.*" del /Q "_Converted\*.part.*" >nul 2>&1
+if exist "*.part.mkv" del /Q "*.part.mkv" >nul 2>&1
+if exist "*.part.gif" del /Q "*.part.gif" >nul 2>&1
+if exist "*_mask.part.png" del /Q "*_mask.part.png" >nul 2>&1
+if exist "*_clip.part.mkv" del /Q "*_clip.part.mkv" >nul 2>&1
 for %%I in (!INPUT_GLOBS!) do if exist "%%I" (
 	if /i "!MODE!"=="EXTRACT" (
 		call :RUN_EXTRACT "%%I"
@@ -75,18 +80,27 @@ for %%I in (!INPUT_GLOBS!) do if exist "%%I" (
 exit /b
 
 :RUN_BURN
-if not exist "%~n1.srt" (
-	echo %ESC%[91mWARNING: Subtitle file not found: %~n1.srt%ESC%[0m
+set "SRC=%~1"
+set "BASE=%~n1"
+set "NAME=%~nx1"
+if not exist "!BASE!.srt" (
+	echo %ESC%[91mWARNING: Subtitle file not found: !BASE!.srt%ESC%[0m
 	exit /b
 )
 mediainfo --Inform="General;%%Duration/String2%% - %%FileSize/String4%%" "%~1"
 call :BUILD_AC3 "%~1"
-ffmpeg %FF_FLAGS% -i "%~1" -map 0:v:0 -map 0:a? -map 0:s? !AUDIO_ARGS! -c:s copy %NVENC_PARAM% -pix_fmt %PIX_FMT% -vf "subtitles=%~n1.srt" -map_metadata 0 -map_chapters 0 "_Converted\%~n1.mkv"
+ffmpeg %FF_FLAGS% -i "%~1" -map 0:v:0 -map 0:a? -map 0:s? !AUDIO_ARGS! -c:s copy %NVENC_PARAM% -pix_fmt %PIX_FMT% -vf "subtitles=%~n1.srt" -map_metadata 0 -map_chapters 0 "_Converted\%~n1.part.mkv"
 if errorlevel 1 (
-	echo %ESC%[91mWARNING: Conversion failed.%ESC%[0m
+	if exist "_Converted\%~n1.part.mkv" del /Q "_Converted\%~n1.part.mkv" >nul 2>&1
+	echo %ESC%[91mWARNING: Conversion failed or cancelled. Source not moved.%ESC%[0m
 	exit /b
 )
-if not exist "_Converted\%~n1.mkv" echo %ESC%[91mWARNING: No output file.%ESC%[0m
+if not exist "_Converted\%~n1.part.mkv" (
+	echo %ESC%[91mWARNING: No output file.%ESC%[0m
+	exit /b
+)
+move /Y "_Converted\%~n1.part.mkv" "_Converted\%~n1.mkv" >nul
+if not exist "_Converted\%~n1.mkv" echo %ESC%[91mWARNING: Rename failed.%ESC%[0m
 exit /b
 
 :RUN_GIF
@@ -97,9 +111,20 @@ if not exist "%PAL%" (
 	echo %ESC%[91mWARNING: Palette generation failed.%ESC%[0m
 	exit /b
 )
-ffmpeg %FF_FLAGS% -i "%~1" -i "%PAL%" -lavfi "paletteuse=dither=bayer:bayer_scale=5" -map_metadata 0 "_Converted\%~n1.gif"
+ffmpeg %FF_FLAGS% -i "%~1" -i "%PAL%" -lavfi "paletteuse=dither=bayer:bayer_scale=5" -map_metadata 0 "_Converted\%~n1.part.gif"
+set "GIFERR=!errorlevel!"
 del /q "%PAL%" >nul
-if not exist "_Converted\%~n1.gif" echo %ESC%[91mWARNING: No output file.%ESC%[0m
+if not "!GIFERR!"=="0" (
+	if exist "_Converted\%~n1.part.gif" del /Q "_Converted\%~n1.part.gif" >nul 2>&1
+	echo %ESC%[91mWARNING: Conversion failed or cancelled. Source not moved.%ESC%[0m
+	exit /b
+)
+if not exist "_Converted\%~n1.part.gif" (
+	echo %ESC%[91mWARNING: No output file.%ESC%[0m
+	exit /b
+)
+move /Y "_Converted\%~n1.part.gif" "_Converted\%~n1.gif" >nul
+if not exist "_Converted\%~n1.gif" echo %ESC%[91mWARNING: Rename failed.%ESC%[0m
 exit /b
 
 :RUN_LUT
@@ -113,34 +138,53 @@ if not exist "!LUTTMP!" (
 mediainfo --Inform="General;%%Duration/String2%% - %%FileSize/String4%%" "%~1"
 call :BUILD_AC3 "%~1"
 if /i "!LUTEXT!"==".cube" (
-	ffmpeg %FF_FLAGS% -i "%~1" -map 0:v:0 -map 0:a? -map 0:s? !AUDIO_ARGS! -c:s copy %NVENC_PARAM% -pix_fmt %PIX_FMT% -vf "lut3d=file=!LUTTMP!" -map_metadata 0 -map_chapters 0 "_Converted\%~n1.mkv"
+	ffmpeg %FF_FLAGS% -i "%~1" -map 0:v:0 -map 0:a? -map 0:s? !AUDIO_ARGS! -c:s copy %NVENC_PARAM% -pix_fmt %PIX_FMT% -vf "lut3d=file=!LUTTMP!" -map_metadata 0 -map_chapters 0 "_Converted\%~n1.part.mkv"
 ) else (
-	ffmpeg %FF_FLAGS% -i "%~1" -i "!LUTTMP!" !AUDIO_ARGS! -c:s copy %NVENC_PARAM% -pix_fmt %PIX_FMT% -filter_complex "[1:v]crop=512:512:0:0[hald];[0:v:0][hald]haldclut[out]" -map "[out]" -map 0:a? -map 0:s? -map_metadata 0 -map_chapters 0 "_Converted\%~n1.mkv"
+	ffmpeg %FF_FLAGS% -i "%~1" -i "!LUTTMP!" !AUDIO_ARGS! -c:s copy %NVENC_PARAM% -pix_fmt %PIX_FMT% -filter_complex "[1:v]crop=512:512:0:0[hald];[0:v:0][hald]haldclut[out]" -map "[out]" -map 0:a? -map 0:s? -map_metadata 0 -map_chapters 0 "_Converted\%~n1.part.mkv"
 )
 set "FFERR=!errorlevel!"
 del /q "!LUTTMP!" >nul
 if not "!FFERR!"=="0" (
-	echo %ESC%[91mWARNING: Conversion failed.%ESC%[0m
+	if exist "_Converted\%~n1.part.mkv" del /Q "_Converted\%~n1.part.mkv" >nul 2>&1
+	echo %ESC%[91mWARNING: Conversion failed or cancelled. Source not moved.%ESC%[0m
 	exit /b
 )
-if not exist "_Converted\%~n1.mkv" echo %ESC%[91mWARNING: No output file.%ESC%[0m
+if not exist "_Converted\%~n1.part.mkv" (
+	echo %ESC%[91mWARNING: No output file.%ESC%[0m
+	exit /b
+)
+move /Y "_Converted\%~n1.part.mkv" "_Converted\%~n1.mkv" >nul
+if not exist "_Converted\%~n1.mkv" echo %ESC%[91mWARNING: Rename failed.%ESC%[0m
 exit /b
 
 :RUN_MASK
-if not exist "%~n1_mask.png" (
-	ffmpeg %FF_FLAGS% -ss %MASK_SEEK% -i "%~1" -frames:v 1 -update 1 "%~n1_mask.png"
-	if not exist "%~n1_mask.png" ffmpeg %FF_FLAGS% -ss 00:00:00 -i "%~1" -frames:v 1 -update 1 "%~n1_mask.png"
-	if not exist "%~n1_mask.png" echo %ESC%[91mWARNING: No mask frame: %~nx1%ESC%[0m
+set "SRC=%~1"
+set "BASE=%~n1"
+set "NAME=%~nx1"
+if not exist "!BASE!_mask.png" (
+	ffmpeg %FF_FLAGS% -ss %MASK_SEEK% -i "!SRC!" -frames:v 1 -update 1 "!BASE!_mask.part.png"
+	if not exist "!BASE!_mask.part.png" ffmpeg %FF_FLAGS% -ss 00:00:00 -i "!SRC!" -frames:v 1 -update 1 "!BASE!_mask.part.png"
+	if exist "!BASE!_mask.part.png" (
+		move /Y "!BASE!_mask.part.png" "!BASE!_mask.png" >nul
+	) else (
+		echo %ESC%[91mWARNING: No mask frame: !NAME!%ESC%[0m
+	)
 )
-if not exist "%~n1_clip.mkv" (
-	ffmpeg %FF_FLAGS% -ss %MASK_SEEK% -t %MASK_SPAN% -i "%~1" -map 0 -c copy -map_metadata 0 -map_chapters 0 "%~n1_clip.mkv"
-	if not exist "%~n1_clip.mkv" ffmpeg %FF_FLAGS% -ss 00:00:00 -t %MASK_SPAN% -i "%~1" -map 0 -c copy -map_metadata 0 -map_chapters 0 "%~n1_clip.mkv"
-	if not exist "%~n1_clip.mkv" echo %ESC%[91mWARNING: No clip: %~nx1%ESC%[0m
+if not exist "!BASE!_clip.mkv" (
+	ffmpeg %FF_FLAGS% -ss %MASK_SEEK% -t %MASK_SPAN% -i "!SRC!" -map 0 -c copy -map_metadata 0 -map_chapters 0 "!BASE!_clip.part.mkv"
+	if not exist "!BASE!_clip.part.mkv" ffmpeg %FF_FLAGS% -ss 00:00:00 -t %MASK_SPAN% -i "!SRC!" -map 0 -c copy -map_metadata 0 -map_chapters 0 "!BASE!_clip.part.mkv"
+	if exist "!BASE!_clip.part.mkv" (
+		move /Y "!BASE!_clip.part.mkv" "!BASE!_clip.mkv" >nul
+	) else (
+		echo %ESC%[91mWARNING: No clip: !NAME!%ESC%[0m
+	)
 )
 exit /b
 
 :RUN_EXTRACT
+set "SRC=%~1"
 set "BASE=%~n1"
+set "NAME=%~nx1"
 set "SUBIDX=0"
 set "EXTRACTED=0"
 set "CNT_DE=0" & set "CNT_DEF=0" & set "CNT_EN=0" & set "CNT_ENF=0" & set "CNT_UN=0" & set "CNT_UNF=0"
@@ -174,17 +218,27 @@ for %%V in (CNT_%~1) do set "CNT=!%%V!"
 exit /b
 
 :EXTRACT_STREAM
+set "SRC=%~1"
+set "NAME=%~nx1"
+set "TARGET=%~3"
+set "PART=%~dpn3.part%~x3"
 if "!EXTRACTED!"=="0" (
-	mediainfo --Inform="General;%%Duration/String2%% - %%FileSize/String4%%" "%~1"
-	echo %ESC%[101;93m %~nx1 %ESC%[0m
+	mediainfo --Inform="General;%%Duration/String2%% - %%FileSize/String4%%" "!SRC!"
+	echo %ESC%[101;93m !NAME! %ESC%[0m
 	set "EXTRACTED=1"
 )
-ffmpeg %FF_FLAGS% -i "%~1" -map 0:s:%~2 -c:s srt "%~3"
-if not exist "%~3" echo %ESC%[91mWARNING: Extraction failed: stream %~2%ESC%[0m
+ffmpeg %FF_FLAGS% -i "%~1" -map 0:s:%~2 -c:s srt "!PART!"
+if exist "!PART!" (
+	move /Y "!PART!" "!TARGET!" >nul
+) else (
+	echo %ESC%[91mWARNING: Extraction failed: stream %~2%ESC%[0m
+)
 exit /b
 
 :RUN_SRTMERGE
+set "SRC=%~1"
 set "BASE=%~n1"
+set "NAME=%~nx1"
 set "SCNT=0"
 for /f "usebackq delims=" %%C in (`ffprobe -hide_banner -v error -select_streams s -show_entries stream^=index -of csv^=p^=0 "%~1" 2^>nul`) do set /a "SCNT+=1"
 set "SRT_ARGS="
@@ -197,16 +251,22 @@ for %%L in (DE EN UN) do (
 	call :MERGE_SCAN "!BASE!" %%L ""
 )
 if not defined SRT_MAPS (
-	echo %ESC%[91mWARNING: No matching srt files: %~nx1%ESC%[0m
+	echo %ESC%[91mWARNING: No matching srt files: !NAME!%ESC%[0m
 	exit /b
 )
 mediainfo --Inform="General;%%Duration/String2%% - %%FileSize/String4%%" "%~1"
-ffmpeg %FF_FLAGS% -i "%~1" !SRT_ARGS! -map 0 !SRT_MAPS! -c copy !SRT_META! !SRT_DISP! -map_metadata 0 -map_chapters 0 "_Converted\%~n1.mkv"
+ffmpeg %FF_FLAGS% -i "%~1" !SRT_ARGS! -map 0 !SRT_MAPS! -c copy !SRT_META! !SRT_DISP! -map_metadata 0 -map_chapters 0 "_Converted\%~n1.part.mkv"
 if errorlevel 1 (
-	echo %ESC%[91mWARNING: Conversion failed.%ESC%[0m
+	if exist "_Converted\%~n1.part.mkv" del /Q "_Converted\%~n1.part.mkv" >nul 2>&1
+	echo %ESC%[91mWARNING: Conversion failed or cancelled. Source not moved.%ESC%[0m
 	exit /b
 )
-if not exist "_Converted\%~n1.mkv" echo %ESC%[91mWARNING: No output file.%ESC%[0m
+if not exist "_Converted\%~n1.part.mkv" (
+	echo %ESC%[91mWARNING: No output file.%ESC%[0m
+	exit /b
+)
+move /Y "_Converted\%~n1.part.mkv" "_Converted\%~n1.mkv" >nul
+if not exist "_Converted\%~n1.mkv" echo %ESC%[91mWARNING: Rename failed.%ESC%[0m
 exit /b
 
 :MERGE_SCAN
@@ -245,17 +305,24 @@ for /f "usebackq tokens=1,2 delims=," %%A in (`ffprobe -hide_banner -v error -se
 	)
 )
 mediainfo --Inform="General;%%Duration/String2%% - %%FileSize/String4%%" "%~1"
-ffmpeg %FF_FLAGS% -i "%~1" -map 0 -c copy -map_metadata -1 -map_chapters -1 !ATT_ARGS! "_Converted\%~n1.mkv"
+ffmpeg %FF_FLAGS% -i "%~1" -map 0 -c copy -map_metadata -1 -map_chapters -1 !ATT_ARGS! "_Converted\%~n1.part.mkv"
 if errorlevel 1 (
-	echo %ESC%[91mWARNING: Conversion failed.%ESC%[0m
+	if exist "_Converted\%~n1.part.mkv" del /Q "_Converted\%~n1.part.mkv" >nul 2>&1
+	echo %ESC%[91mWARNING: Conversion failed or cancelled. Source not moved.%ESC%[0m
 	exit /b
 )
-if not exist "_Converted\%~n1.mkv" (
+if not exist "_Converted\%~n1.part.mkv" (
 	echo %ESC%[91mWARNING: No output file.%ESC%[0m
 	exit /b
 )
-mkvpropedit --quiet "_Converted\%~n1.mkv" -t all: --delete-track-statistics-tags -e info -s writing-application= -s muxing-application=
-if errorlevel 1 echo %ESC%[91mWARNING: mkvpropedit failed.%ESC%[0m
+mkvpropedit --quiet "_Converted\%~n1.part.mkv" -t all: --delete-track-statistics-tags -e info -s writing-application= -s muxing-application=
+if errorlevel 1 (
+	echo %ESC%[91mWARNING: mkvpropedit failed.%ESC%[0m
+	del /Q "_Converted\%~n1.part.mkv" >nul 2>&1
+	exit /b
+)
+move /Y "_Converted\%~n1.part.mkv" "_Converted\%~n1.mkv" >nul
+if not exist "_Converted\%~n1.mkv" echo %ESC%[91mWARNING: Rename failed.%ESC%[0m
 exit /b
 
 :BUILD_AC3
@@ -288,8 +355,15 @@ for /f "delims=" %%I in ('dir /b /o:n "*_part_*.mkv" 2^>nul') do (
 			echo %ESC%[101;93m !BASENAME! %ESC%[0m
 			if exist "!JOIN_LIST!" del /q "!JOIN_LIST!" >nul
 			for /f "delims=" %%P in ('dir /b /o:n "!BASENAME!_part_*.mkv" 2^>nul') do echo file '%%~fP'>>"!JOIN_LIST!"
-			ffmpeg %FF_FLAGS% -f concat -safe 0 -i "!JOIN_LIST!" -map 0 -c copy -map_metadata 0 "!BASENAME!.mkv"
-			if not exist "!BASENAME!.mkv" echo %ESC%[91mWARNING: Join failed: !BASENAME!%ESC%[0m
+			ffmpeg %FF_FLAGS% -f concat -safe 0 -i "!JOIN_LIST!" -map 0 -c copy -map_metadata 0 "!BASENAME!.part.mkv"
+			if errorlevel 1 (
+				if exist "!BASENAME!.part.mkv" del /Q "!BASENAME!.part.mkv" >nul 2>&1
+				echo %ESC%[91mWARNING: Join failed or cancelled: !BASENAME!%ESC%[0m
+			) else if exist "!BASENAME!.part.mkv" (
+				move /Y "!BASENAME!.part.mkv" "!BASENAME!.mkv" >nul
+			) else (
+				echo %ESC%[91mWARNING: No output file.%ESC%[0m
+			)
 		)
 	)
 )
@@ -304,11 +378,24 @@ for %%I in (*.mkv *.mp4) do (
 			echo %ESC%[93mSKIP: %%~nI_part_*.mkv already exists.%ESC%[0m
 		) else (
 			echo %ESC%[101;93m %%I %ESC%[0m
-			ffmpeg %FF_FLAGS% -i "%%I" -map 0 -c copy -f segment -segment_time %CUT_SEGMENT% -reset_timestamps 1 "%%~nI_part_%%02d.mkv"
-			if not exist "%%~nI_part_00.mkv" echo %ESC%[91mWARNING: Cut failed: %%~nxI%ESC%[0m
+			ffmpeg %FF_FLAGS% -i "%%I" -map 0 -c copy -f segment -segment_time %CUT_SEGMENT% -reset_timestamps 1 "%%~nI_part_%%02d.part.mkv"
+			if errorlevel 1 (
+				del /Q "%%~nI_part_*.part.mkv" >nul 2>&1
+				echo %ESC%[91mWARNING: Cut failed or cancelled: %%~nxI%ESC%[0m
+			) else if not exist "%%~nI_part_00.part.mkv" (
+				echo %ESC%[91mWARNING: No output file.%ESC%[0m
+			) else (
+				for %%P in ("%%~nI_part_*.part.mkv") do call :PART_RENAME "%%P"
+			)
 		)
 	)
 )
+exit /b
+
+:PART_RENAME
+set "PN=%~n1"
+set "PN=!PN:.part=!"
+move /Y "%~1" "%~dp1!PN!%~x1" >nul
 exit /b
 
 :VALIDATE-PARAMS

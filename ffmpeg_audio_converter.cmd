@@ -48,12 +48,15 @@ exit /b
 
 :MAIN
 call :ENSURE_DIR "_Converted"
+if exist "_Converted\*.part.*" del /Q "_Converted\*.part.*" >nul 2>&1
 set "FOUND=0"
 for %%I in (!INPUT_GLOBS!) do if exist "%%I" if not exist "_Converted\%%~nI!OUT_EXT!" (
 	echo %ESC%[101;93m %%I %ESC%[0m
 
 	set "FOUND=1"
 	set "SKIP_FILE="
+	set "ENC_NEEDED="
+	set "SEL_NOCHANGE="
 
 	if /i "!MODE!"=="MP3" (
 		call :RUN_MP3 "%%I"
@@ -91,21 +94,23 @@ for %%I in (!INPUT_GLOBS!) do if exist "%%I" if not exist "_Converted\%%~nI!OUT_
 			)
 		)
 
+		if not defined SKIP_FILE call :TRY_MOVE "%%I"
+
 		if not defined SKIP_FILE (
 			mediainfo --Inform="General;%%Duration/String2%% - %%FileSize/String4%%" "%%I"
 
-			ffmpeg %FF_FLAGS% -i "%%I" !MAP_PARAM! !CODEC_PARAM! !AUDIO_ARGS! !EXTRA_PARAM! !CHANNEL_PARAM! -map_metadata 0 -map_chapters 0 "_Converted\%%~nI.mkv"
+			ffmpeg %FF_FLAGS% -i "%%I" !MAP_PARAM! !CODEC_PARAM! !AUDIO_ARGS! !EXTRA_PARAM! !CHANNEL_PARAM! -map_metadata 0 -map_chapters 0 "_Converted\%%~nI.part.mkv"
 
 			if errorlevel 1 (
-				echo %ESC%[91mWARNING: Conversion failed. Moving file to _Check.%ESC%[0m
-				call :ENSURE_DIR "_Check"
-				move /Y "%%I" "_Check\" >nul
+				if exist "_Converted\%%~nI.part.mkv" del /Q "_Converted\%%~nI.part.mkv" >nul 2>&1
+				echo %ESC%[91mWARNING: Conversion failed or cancelled. Source not moved.%ESC%[0m
 				set "SKIP_FILE=1"
-			) else if not exist "_Converted\%%~nI.mkv" (
-				echo %ESC%[91mWARNING: No output file. Moving file to _Check.%ESC%[0m
-				call :ENSURE_DIR "_Check"
-				move /Y "%%I" "_Check\" >nul
+			) else if not exist "_Converted\%%~nI.part.mkv" (
+				echo %ESC%[91mWARNING: No output file.%ESC%[0m
 				set "SKIP_FILE=1"
+			) else (
+				move /Y "_Converted\%%~nI.part.mkv" "_Converted\%%~nI.mkv" >nul
+				if not exist "_Converted\%%~nI.mkv" echo %ESC%[91mWARNING: Rename failed.%ESC%[0m
 			)
 		)
 	)
@@ -143,6 +148,13 @@ if not defined SEL_DE if not defined SEL_EN (
 	set "SKIP_FILE=1"
 	exit /b
 )
+set "SEL_SAME=1"
+set "SEL_N=0"
+for %%o in (!SEL_ORDER!) do (
+	if not "%%o"=="!SEL_N!" set "SEL_SAME="
+	set /a "SEL_N+=1"
+)
+if defined SEL_SAME if !SEL_N! EQU !A_ORD! set "SEL_NOCHANGE=1"
 set /a "OUT_IDX=0"
 for %%o in (!SEL_ORDER!) do (
 	set "AUDIO_MAP=!AUDIO_MAP! -map 0:a:%%o"
@@ -175,6 +187,7 @@ if "!NEED_ENC!"=="1" (
 	if "!D_CH!"=="1" set "UP_CHAIN=pan=stereo|c0=c0|c1=c0,!UPMIX_FILTER!"
 	if "!UP!"=="1" if "!D_CLASS!"=="20" set "AUDIO_ARGS=!AUDIO_ARGS! -filter:a:!D_IDX! !UP_CHAIN!"
 	if "!DOWN!"=="1" if !D_CH! GTR 2 set "AUDIO_ARGS=!AUDIO_ARGS! -filter:a:!D_IDX! !DOWNMIX_FILTER!"
+	if /i "!MODE!"=="AUDIO" set "ENC_NEEDED=1"
 ) else (
 	set "AUDIO_ARGS=!AUDIO_ARGS! -c:a:!D_IDX! copy"
 )
@@ -193,36 +206,60 @@ if !ACNT!==0 (
 	exit /b
 )
 mediainfo --Inform="General;%%Duration/String2%% - %%FileSize/String4%%" "%~1"
-ffmpeg %FF_FLAGS% -i "%~1" -map 0:a:0 -vn -c:a mp3 -b:a !MP3_BR! -ac 2 !EXTRA_PARAM! -map_metadata 0 -map_chapters -1 "_Converted\%~n1.mp3"
+ffmpeg %FF_FLAGS% -i "%~1" -map 0:a:0 -vn -c:a mp3 -b:a !MP3_BR! -ac 2 !EXTRA_PARAM! -map_metadata 0 -map_chapters -1 "_Converted\%~n1.part.mp3"
 if errorlevel 1 (
-	echo %ESC%[91mWARNING: Conversion failed. Moving file to _Check.%ESC%[0m
-	call :ENSURE_DIR "_Check"
-	move /Y "%~1" "_Check\" >nul
+	if exist "_Converted\%~n1.part.mp3" del /Q "_Converted\%~n1.part.mp3" >nul 2>&1
+	echo %ESC%[91mWARNING: Conversion failed or cancelled. Source not moved.%ESC%[0m
 	exit /b
 )
-if not exist "_Converted\%~n1.mp3" (
-	echo %ESC%[91mWARNING: No output file. Moving file to _Check.%ESC%[0m
-	call :ENSURE_DIR "_Check"
-	move /Y "%~1" "_Check\" >nul
+if not exist "_Converted\%~n1.part.mp3" (
+	echo %ESC%[91mWARNING: No output file.%ESC%[0m
+	exit /b
 )
+move /Y "_Converted\%~n1.part.mp3" "_Converted\%~n1.mp3" >nul
+if not exist "_Converted\%~n1.mp3" echo %ESC%[91mWARNING: Rename failed.%ESC%[0m
 exit /b
 
 :RUN_SILENCE
 set "ACNT=0"
 for /f "usebackq delims=" %%C in (`ffprobe -hide_banner -v error -select_streams a -show_entries stream^=index -of csv^=p^=0 "%~1" 2^>nul`) do set /a "ACNT+=1"
 mediainfo --Inform="General;%%Duration/String2%% - %%FileSize/String4%%" "%~1"
-ffmpeg %FF_FLAGS% -i "%~1" -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=48000 -map 0 -map 1:a -c copy -c:a:!ACNT! aac -b:a 192k -shortest -map_metadata 0 -map_chapters 0 "_Converted\%~n1.mkv"
+ffmpeg %FF_FLAGS% -i "%~1" -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=48000 -map 0 -map 1:a -c copy -c:a:!ACNT! aac -b:a 192k -shortest -map_metadata 0 -map_chapters 0 "_Converted\%~n1.part.mkv"
 if errorlevel 1 (
-	echo %ESC%[91mWARNING: Conversion failed. Moving file to _Check.%ESC%[0m
-	call :ENSURE_DIR "_Check"
-	move /Y "%~1" "_Check\" >nul
+	if exist "_Converted\%~n1.part.mkv" del /Q "_Converted\%~n1.part.mkv" >nul 2>&1
+	echo %ESC%[91mWARNING: Conversion failed or cancelled. Source not moved.%ESC%[0m
 	exit /b
 )
-if not exist "_Converted\%~n1.mkv" (
-	echo %ESC%[91mWARNING: No output file. Moving file to _Check.%ESC%[0m
-	call :ENSURE_DIR "_Check"
-	move /Y "%~1" "_Check\" >nul
+if not exist "_Converted\%~n1.part.mkv" (
+	echo %ESC%[91mWARNING: No output file.%ESC%[0m
+	exit /b
 )
+move /Y "_Converted\%~n1.part.mkv" "_Converted\%~n1.mkv" >nul
+if not exist "_Converted\%~n1.mkv" echo %ESC%[91mWARNING: Rename failed.%ESC%[0m
+exit /b
+
+:TRY_MOVE
+set "SRC=%~1"
+set "BASE=%~n1"
+set "NAME=%~nx1"
+if /i not "%~x1"==".mkv" exit /b
+if /i "!MODE!"=="TAG" exit /b
+if /i "!MODE!"=="MP3" exit /b
+if /i "!MODE!"=="SILENCE" exit /b
+if /i "!MODE!"=="AUDIO" if defined ENC_NEEDED exit /b
+if "!SELECT!"=="1" if not defined SEL_NOCHANGE exit /b
+call :COUNT_TYPE "!SRC!" v
+if !CNT_TMP! GTR 1 exit /b
+move /Y "!SRC!" "_Converted\!BASE!.mkv" >nul
+if exist "_Converted\!BASE!.mkv" (
+	echo %ESC%[93mMOVE: !NAME! already in target format.%ESC%[0m
+	set "SKIP_FILE=1"
+)
+exit /b
+
+:COUNT_TYPE
+set "CNT_TMP=0"
+for /f "usebackq delims=" %%C in (`ffprobe -hide_banner -v error -select_streams %~2 -show_entries stream^=index -of csv^=p^=0 "%~1" 2^>nul`) do set /a "CNT_TMP+=1"
 exit /b
 
 :VALIDATE-PARAMS
