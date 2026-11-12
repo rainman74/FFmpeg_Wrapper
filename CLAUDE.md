@@ -12,7 +12,7 @@ Batch-Wrapper für `ffmpeg.exe` (NVENC-Hardwareencoding) plus zwei Master-Conver
 | `ffmpeg_video_converter.cmd` | Master für Video: SRT extrahieren/einbrennen/muxen, Metadaten strippen, GIF, LUT, Mask, Cut/Join |
 | `README.md` | Nutzer-Doku (wird von `. ___PUSH___.cmd` **nicht** nach bin kopiert) |
 
-**Nur im `bin` (nicht im Repo):** `funac.cmd`, `funvc.cmd` (Start-Wrapper mit `CALLER_NAME`), `cube.cmd`, `clut.cmd` (HaldCLUT/Cube-Erzeugung), `ffmpeg_regrade.cmd` (Scratch-Skript Regrade/Logo).
+**Nur im `bin` (nicht im Repo):** `funac.cmd`, `funvc.cmd` (Start-Wrapper mit `CALLER_NAME`), `cube.cmd`, `clut.cmd` (HaldCLUT/Cube-Erzeugung).
 
 ## Konventionen der Converter
 
@@ -46,8 +46,7 @@ Batch-Wrapper für `ffmpeg.exe` (NVENC-Hardwareencoding) plus zwei Master-Conver
 ## Deployment / Push
 
 - `.___PUSH___.cmd` im jeweiligen Repo-Root ausführen: xcopy `*.cmd` → `%CMDPATH%\bin`, `git add .`, `git commit -m "Updates"`, `git push`
-- **Achtung:** Das Repo enthält die **öffentliche/sanitisierte** Version. `bin` kann private Token-Werte haben (im `ffmpeg_wrapper`: `c1`–`c6`/`f1`–`f6`; im `nvencc64_wrapper` des Schwester-Repos `smooth`/`nlmeans`/`f1`–`f3`) → vor dem Push ggf. bin-Version sichern und nach dem Push zurückkopieren
-- `extended/` ist lokal und wird nicht mitcommittet (via `.gitignore`)
+- **Repo ist maßgeblich:** `. ___PUSH___.cmd` überschreibt `bin` direkt mit der Repo-Version. Private Token-Werte (im `ffmpeg_wrapper`: `c1`–`c6`/`f1`–`f6`; im `nvencc64_wrapper` des Schwester-Repos `smooth`/`nlmeans`/`f1`–`f3`) sind nur temporäre Filter-Spielereien — kein Sichern nötig, bei Bedarf neu setzen
 
 ## Fallstricke (aus der Praxis)
 
@@ -60,6 +59,6 @@ Batch-Wrapper für `ffmpeg.exe` (NVENC-Hardwareencoding) plus zwei Master-Conver
 
 ## Historie (Auszug)
 
-- 2026-11-12: `ffmpeg_converter.cmd` → `ffmpeg_audio_converter.cmd` umbenannt (Profile ac3/aac/ac32x/ac51x/eng/ger/copy + `mp3`, `silence`; `dual`/`ac3eng`/`aaceng` entfernt)
+- 2026-11-12: `ffmpeg_converter.cmd` → `ffmpeg_audio_converter.cmd` umbenannt (der alte Dateiname existiert nicht mehr; Profile ac3/aac/ac32x/ac51x/eng/ger/copy + `mp3`, `silence`; `dual`/`ac3eng`/`aaceng` entfernt)
 - 2026-11-12: `ffmpeg_video_converter.cmd` neu (srt_extract/srt_burn/srt_merge/strip/gif/lut/mask/cut/join); `funvc.cmd` im bin
 - 2026-11-12: `No files found.` und `[INFO] Savings`-Ausgaben aus Wrapper und Convertern entfernt
