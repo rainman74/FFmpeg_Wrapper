@@ -72,11 +72,6 @@ for %%I in (!INPUT_GLOBS!) do if exist "%%I" (
 	)
 )
 
-if "%FOUND%"=="0" (
-	echo No files found.
-) else if /i not "!MODE!"=="MASK" if /i not "!MODE!"=="EXTRACT" (
-	powershell -command "$o=ls *.mkv,*.mp4,*.mpg,*.mov,*.avi,*.webm; $s=0; $d=0; foreach($f in $o){$c='_Converted\'+$f.BaseName+'!OUT_EXT!'; if(test-path $c){$s+=$f.Length; $d+=(ls $c).Length}}; if($s -gt 0){write-host ('[INFO] Savings: {0:N2} GB ({1:P1})' -f (($s-$d)/1GB), (($s-$d)/$s)) -ForegroundColor Green}"
-)
 exit /b
 
 :RUN_BURN

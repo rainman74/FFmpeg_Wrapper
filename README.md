@@ -12,6 +12,9 @@ Batch-Videotranscoding-Wrapper für FFmpeg mit NVENC-Hardwareencoding, automatis
 - **AviSynth** — `*.avs`-Skripte werden ohne Codec-Erkennung direkt von FFmpeg eingelesen (ohne HW-Beschleunigung)
 - **Tag-Bereinigung** — Automatische MKV-Metadaten-Normalisierung via `mkvpropedit`
 - **Fehlerbehandlung** — Nicht analysierbare Dateien (außer `*.avs`) landen in `_Check/` zur manuellen Prüfung
+- **Audio-Converter** — `ffmpeg_audio_converter.cmd`: Audiospuren konvertieren, up-/downmixen, taggen, MP3-Export, stumme Spur ergänzen
+- **Video-Converter** — `ffmpeg_video_converter.cmd`: SRT extrahieren/einbrennen/muxen, Metadaten strippen, GIF, LUT, Mask/Preview, Cut/Join
+- **Start-Wrapper** — `funac.cmd` / `funvc.cmd` im `bin` rufen die Converter mit `%*` auf
 - **Debug-Modus** — Detaillierte Ausgabe (Auto-Crop, Parameter, Zwischenergebnisse) via `set "DEBUG=1"` in der Wrapper-Datei
 
 ## Voraussetzungen
@@ -221,7 +224,7 @@ Aktiviert detaillierte Ausgabe der Crop-Erkennung, FFmpeg-Parameter und Zwischen
 1. Alle Videodateien im aktuellen Ordner werden nacheinander verarbeitet
 2. Pro Datei: Codec-Prüfung (bei `*.avs` entfällt sie) → ggf. Auto-Crop → Encoding nach `_Converted/<name>.mkv`
 3. Nach Encoding: 5s Pause, dann nächste Datei
-4. Am Ende: Anzeige der Speicherersparnis (komprimierte vs. originale Größe)
+4. Am Ende: Anzeige der Speicherersparnis (Summe der Quellgrößen mit vorhandener `_Converted`-Ausgabe vs. Ausgabegrößen; negative Werte = Ausgabe größer). Gibt es nichts zu tun, erfolgt keine Meldung.
 
 ## Fehlerbehandlung
 
@@ -277,6 +280,86 @@ ffmpeg_wrapper hevc ac3 auto auto
 ```
 
 Neue Dateien im Verzeichnis werden damit einheitlich und ohne manuelle Eingriffe verarbeitet.
+
+## Audio-Converter (`ffmpeg_audio_converter.cmd`)
+
+Konvertiert bzw. etikettiert **Audiospuren** in Videodateien; das Video wird dabei kopiert. Ausgabe: `_Converted\<Name>.mkv` (bzw. `.mp3` bei `mp3`), vorhandene Ausgaben werden übersprungen, Fehler landen in `_Check/`.
+
+```
+ffmpeg_audio_converter <profile> [select]
+```
+
+| Profil | Verhalten |
+|--------|-----------|
+| `ac3` | AC-3, 192k (≤2ch) / 384k (>2ch); passende AC-3-Spuren werden kopiert |
+| `ac351` | AC-3, Ziel 5.1 (6 Kanäle), 384k |
+| `ac351u` | wie `ac351`, 1–2ch-Quellen werden per **UpMix** auf 5.1 gehoben |
+| `ac320` | AC-3, Ziel 2.0, 192k |
+| `ac320d` | wie `ac320`, >2ch-Quellen werden per **DownMix** auf 2.0 gemischt |
+| `aac` / `aac20` | AAC, Ziel 2.0, 128k/256k |
+| `aac20d` | wie `aac20`, >2ch-Quellen per **DownMix** |
+| `aac51` | AAC, Ziel 5.1 |
+| `aac51u` | wie `aac51`, 1–2ch-Quellen per **UpMix** |
+| `eng` / `ger` | nur Taggen: alle Audiospuren erhalten Sprache `eng`/`ger` (kein Re-Encode) |
+| `copy` | alle Spuren kopieren (mit `select` nur deu/ger/eng) |
+| `mp3` | erster Audio-Track → **MP3 320k Stereo ohne Video** (`_Converted\<Name>.mp3`); `.mp3`-Inputs werden nur nach `_Converted` verschoben |
+| `silence` | hängt einen stummen AAC-Track (Stereo, 192k) ans Ende an; alle vorhandenen Streams werden kopiert, `select` wird ignoriert |
+
+**Matching:** Kopiert wird nur, wenn Codec **und** Kanal-Klasse passen (2.0 = 1–2ch, 5.1 = 3–6ch); 7.1 (8ch) wird bei 5.1-Ziel per `-ac 6` downgecodet. Up-/DownMix-Filter (`pan` + `alimiter` beim DownMix) greifen nur bei tatsächlich neu zu kodierenden Spuren.
+
+**`select`** (optional, 2. Parameter): behält nur `ger`/`deu`- und `eng`-Audiospuren (DE zuerst, Reihenfolge der Quelle), z. B. `ac3 select`.
+
+```cmd
+ffmpeg_audio_converter ac351 select
+ffmpeg_audio_converter aac51u
+ffmpeg_audio_converter copy select
+ffmpeg_audio_converter mp3
+ffmpeg_audio_converter silence
+```
+
+## Video-Converter (`ffmpeg_video_converter.cmd`)
+
+```
+ffmpeg_video_converter <profil> [param]
+```
+
+| Profil | Aufgabe | Ausgabe |
+|--------|---------|---------|
+| `srt_extract` | exportiert **alle** Untertitelspuren als SRT: `<Name>.DE\|EN\|UN[.Forced][.N].srt` (ger/deu → DE, eng → EN, sonst UN; Forced-Flag im Namen) | `_Converted\*.srt` |
+| `srt_burn` | brennt `<Name>.srt` ins Video ein | `_Converted\<Name>.mkv` |
+| `srt_merge` | muxxt alle passenden `<Name>.*.srt` ein: **DE, dann EN, dann UN — Forced jeweils zuerst**; Forced-Spuren erhalten `disposition forced+default` | `_Converted\<Name>.mkv` |
+| `strip` | entfernt globale Tags, Kapitel, Stream-Tags/Statistik-Tags (nur `*.mkv`); Attachments bleiben erhalten, `Writing/Muxing-Application` werden geleert | `_Converted\<Name>.mkv` |
+| `gif` | 2-Pass-GIF (`palettegen`/`paletteuse`) | `_Converted\<Name>.gif` |
+| `lut <datei>` | wendet eine LUT an: `.cube` → `lut3d`, Bild (`.png`/`.jpg`) → `haldclut` (512×512-Crop, passend zu `clut.cmd`/`cube.cmd`) | `_Converted\<Name>.mkv` |
+| `mask` | Frame bei **05:00** → `<Name>_mask.png` + 30-s-Clip → `<Name>_clip.mkv` (Fallback ab 00:00, falls kürzer) | im aktuellen Ordner |
+| `cut` | jede `*.mkv`/`*.mp4` → `<Name>_part_00.mkv`, `<Name>_part_01.mkv`, … (300 s, stream-copy) | im aktuellen Ordner |
+| `join` | alle `<Name>_part_*.mkv` → `<Name>.mkv` (concat, stream-copy) | im aktuellen Ordner |
+
+**Skip-Verhalten:** `cut` prüft, ob bereits Parts existieren (`<Name>_part_*.mkv`), `join` ob `<Name>.mkv` existiert — dann passiert nichts (Meldung `SKIP: …`). Quelldateien und Parts werden **nie** gelöscht.
+
+**Encoding (nur `srt_burn` und `lut`):** `hevc_nvenc` (HEVC main, `preset p7`, `tune hq`, `cq 26`, `multipass fullres`, spatial/temporal AQ, `lookahead 24`, `refs 4`, `bf 3`, `b_ref_mode middle`) auf `yuv420p`; Audio wird zu **AC3** (vorhandenes AC3 wird kopiert, sonst 192k/384k nach Kanalzahl), Untertitel werden kopiert.
+
+```cmd
+ffmpeg_video_converter srt_extract
+ffmpeg_video_converter srt_burn
+ffmpeg_video_converter srt_merge
+ffmpeg_video_converter strip
+ffmpeg_video_converter gif
+ffmpeg_video_converter lut haldclut_regrade.png
+ffmpeg_video_converter mask
+ffmpeg_video_converter cut
+ffmpeg_video_converter join
+```
+
+## Start-Wrapper im `bin`
+
+`funac.cmd` bzw. `funvc.cmd` rufen die Converter mit allen Parametern (`%*`) auf; ohne Parameter zeigen sie die Usage mit dem Wrapper-Namen an:
+
+```cmd
+funac ac3 select
+funvc strip
+funvc lut haldclut_regrade.png
+```
 
 ## Manual
 

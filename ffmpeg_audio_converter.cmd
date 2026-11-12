@@ -111,11 +111,6 @@ for %%I in (!INPUT_GLOBS!) do if exist "%%I" if not exist "_Converted\%%~nI!OUT_
 	)
 )
 
-if "%FOUND%"=="0" (
-	echo No files found.
-) else (
-	powershell -command "$o=ls *.mkv,*.mp4,*.mpg,*.mov,*.avi,*.webm,*.wav,*.aac,*.ac3,*.ogg,*.m4a,*.mp3; $s=0; $d=0; foreach($f in $o){$c='_Converted\'+$f.BaseName+'!OUT_EXT!'; if(test-path $c){$s+=$f.Length; $d+=(ls $c).Length}}; if($s -gt 0){write-host ('[INFO] Savings: {0:N2} GB ({1:P1})' -f (($s-$d)/1GB), (($s-$d)/$s)) -ForegroundColor Green}"
-)
 exit /b
 
 :BUILD_AUDIO
