@@ -435,7 +435,8 @@ for %%I in (*.avs *.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if exist "%%I" if not
             set "DEC_PARAM=!DECODER_PARAM!"
             if "!IS_AVS!"=="1" set "DEC_PARAM="
             ffmpeg %FF_FLAGS% !DEC_PARAM! -i "%%I" -map 0:v:0 -map 0:a? -map 0:s? -c:v %ENCODER% -profile:v %PROFILE% -level:v auto -rc:v vbr -cq:v !QUALITY! !PRESET! -multipass:v fullres -spatial-aq:v 1 -temporal-aq:v 1 -aq-strength:v 10 -rc-lookahead:v 24 !TUNING! !B_REF! !VF_PARAM! !AUDIO_ARGS! -c:s copy -map_metadata 0 -map_chapters 0 "_Converted\%%~nI.part.mkv"
-			if errorlevel 1 (
+			set "RC=!ERRORLEVEL!"
+			if not "!RC!"=="0" (
 				if exist "_Converted\%%~nI.part.mkv" del /Q "_Converted\%%~nI.part.mkv" >nul 2>&1
 				echo %ESC%[91mWARNING: Encoding failed or cancelled. Source not moved.%ESC%[0m
 				exit /b

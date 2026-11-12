@@ -101,7 +101,8 @@ for %%I in (!INPUT_GLOBS!) do if exist "%%I" if not exist "_Converted\%%~nI!OUT_
 
 			ffmpeg %FF_FLAGS% -i "%%I" !MAP_PARAM! !CODEC_PARAM! !AUDIO_ARGS! !EXTRA_PARAM! !CHANNEL_PARAM! -map_metadata 0 -map_chapters 0 "_Converted\%%~nI.part.mkv"
 
-			if errorlevel 1 (
+			set "RC=!ERRORLEVEL!"
+			if not "!RC!"=="0" (
 				if exist "_Converted\%%~nI.part.mkv" del /Q "_Converted\%%~nI.part.mkv" >nul 2>&1
 				echo %ESC%[91mWARNING: Conversion failed or cancelled. Source not moved.%ESC%[0m
 				set "SKIP_FILE=1"
@@ -207,7 +208,8 @@ if !ACNT!==0 (
 )
 mediainfo --Inform="General;%%Duration/String2%% - %%FileSize/String4%%" "%~1"
 ffmpeg %FF_FLAGS% -i "%~1" -map 0:a:0 -vn -c:a mp3 -b:a !MP3_BR! -ac 2 !EXTRA_PARAM! -map_metadata 0 -map_chapters -1 "_Converted\%~n1.part.mp3"
-if errorlevel 1 (
+set "RC=!ERRORLEVEL!"
+if not "!RC!"=="0" (
 	if exist "_Converted\%~n1.part.mp3" del /Q "_Converted\%~n1.part.mp3" >nul 2>&1
 	echo %ESC%[91mWARNING: Conversion failed or cancelled. Source not moved.%ESC%[0m
 	exit /b
@@ -225,7 +227,8 @@ set "ACNT=0"
 for /f "usebackq delims=" %%C in (`ffprobe -hide_banner -v error -select_streams a -show_entries stream^=index -of csv^=p^=0 "%~1" 2^>nul`) do set /a "ACNT+=1"
 mediainfo --Inform="General;%%Duration/String2%% - %%FileSize/String4%%" "%~1"
 ffmpeg %FF_FLAGS% -i "%~1" -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=48000 -map 0 -map 1:a -c copy -c:a:!ACNT! aac -b:a 192k -shortest -map_metadata 0 -map_chapters 0 "_Converted\%~n1.part.mkv"
-if errorlevel 1 (
+set "RC=!ERRORLEVEL!"
+if not "!RC!"=="0" (
 	if exist "_Converted\%~n1.part.mkv" del /Q "_Converted\%~n1.part.mkv" >nul 2>&1
 	echo %ESC%[91mWARNING: Conversion failed or cancelled. Source not moved.%ESC%[0m
 	exit /b

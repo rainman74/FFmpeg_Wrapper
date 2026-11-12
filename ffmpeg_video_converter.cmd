@@ -90,7 +90,8 @@ if not exist "!BASE!.srt" (
 mediainfo --Inform="General;%%Duration/String2%% - %%FileSize/String4%%" "%~1"
 call :BUILD_AC3 "%~1"
 ffmpeg %FF_FLAGS% -i "%~1" -map 0:v:0 -map 0:a? -map 0:s? !AUDIO_ARGS! -c:s copy %NVENC_PARAM% -pix_fmt %PIX_FMT% -vf "subtitles=%~n1.srt" -map_metadata 0 -map_chapters 0 "_Converted\%~n1.part.mkv"
-if errorlevel 1 (
+set "RC=!ERRORLEVEL!"
+if not "!RC!"=="0" (
 	if exist "_Converted\%~n1.part.mkv" del /Q "_Converted\%~n1.part.mkv" >nul 2>&1
 	echo %ESC%[91mWARNING: Conversion failed or cancelled. Source not moved.%ESC%[0m
 	exit /b
@@ -256,7 +257,8 @@ if not defined SRT_MAPS (
 )
 mediainfo --Inform="General;%%Duration/String2%% - %%FileSize/String4%%" "%~1"
 ffmpeg %FF_FLAGS% -i "%~1" !SRT_ARGS! -map 0 !SRT_MAPS! -c copy !SRT_META! !SRT_DISP! -map_metadata 0 -map_chapters 0 "_Converted\%~n1.part.mkv"
-if errorlevel 1 (
+set "RC=!ERRORLEVEL!"
+if not "!RC!"=="0" (
 	if exist "_Converted\%~n1.part.mkv" del /Q "_Converted\%~n1.part.mkv" >nul 2>&1
 	echo %ESC%[91mWARNING: Conversion failed or cancelled. Source not moved.%ESC%[0m
 	exit /b
@@ -306,7 +308,8 @@ for /f "usebackq tokens=1,2 delims=," %%A in (`ffprobe -hide_banner -v error -se
 )
 mediainfo --Inform="General;%%Duration/String2%% - %%FileSize/String4%%" "%~1"
 ffmpeg %FF_FLAGS% -i "%~1" -map 0 -c copy -map_metadata -1 -map_chapters -1 !ATT_ARGS! "_Converted\%~n1.part.mkv"
-if errorlevel 1 (
+set "RC=!ERRORLEVEL!"
+if not "!RC!"=="0" (
 	if exist "_Converted\%~n1.part.mkv" del /Q "_Converted\%~n1.part.mkv" >nul 2>&1
 	echo %ESC%[91mWARNING: Conversion failed or cancelled. Source not moved.%ESC%[0m
 	exit /b
@@ -316,7 +319,8 @@ if not exist "_Converted\%~n1.part.mkv" (
 	exit /b
 )
 mkvpropedit --quiet "_Converted\%~n1.part.mkv" -t all: --delete-track-statistics-tags -e info -s writing-application= -s muxing-application=
-if errorlevel 1 (
+set "RC=!ERRORLEVEL!"
+if not "!RC!"=="0" (
 	echo %ESC%[91mWARNING: mkvpropedit failed.%ESC%[0m
 	del /Q "_Converted\%~n1.part.mkv" >nul 2>&1
 	exit /b
@@ -356,7 +360,8 @@ for /f "delims=" %%I in ('dir /b /o:n "*_part_*.mkv" 2^>nul') do (
 			if exist "!JOIN_LIST!" del /q "!JOIN_LIST!" >nul
 			for /f "delims=" %%P in ('dir /b /o:n "!BASENAME!_part_*.mkv" 2^>nul') do echo file '%%~fP'>>"!JOIN_LIST!"
 			ffmpeg %FF_FLAGS% -f concat -safe 0 -i "!JOIN_LIST!" -map 0 -c copy -map_metadata 0 "!BASENAME!.part.mkv"
-			if errorlevel 1 (
+			set "RC=!ERRORLEVEL!"
+			if not "!RC!"=="0" (
 				if exist "!BASENAME!.part.mkv" del /Q "!BASENAME!.part.mkv" >nul 2>&1
 				echo %ESC%[91mWARNING: Join failed or cancelled: !BASENAME!%ESC%[0m
 			) else if exist "!BASENAME!.part.mkv" (
@@ -373,13 +378,15 @@ exit /b
 :RUN_CUT
 for %%I in (*.mkv *.mp4) do (
 	echo %%~nI| findstr /i "_part_" >nul
-	if errorlevel 1 (
+	set "RC=!ERRORLEVEL!"
+	if not "!RC!"=="0" (
 		if exist "%%~nI_part_*.mkv" (
 			echo %ESC%[93mSKIP: %%~nI_part_*.mkv already exists.%ESC%[0m
 		) else (
 			echo %ESC%[101;93m %%I %ESC%[0m
 			ffmpeg %FF_FLAGS% -i "%%I" -map 0 -c copy -f segment -segment_time %CUT_SEGMENT% -reset_timestamps 1 "%%~nI_part_%%02d.part.mkv"
-			if errorlevel 1 (
+			set "RC=!ERRORLEVEL!"
+			if not "!RC!"=="0" (
 				del /Q "%%~nI_part_*.part.mkv" >nul 2>&1
 				echo %ESC%[91mWARNING: Cut failed or cancelled: %%~nxI%ESC%[0m
 			) else if not exist "%%~nI_part_00.part.mkv" (

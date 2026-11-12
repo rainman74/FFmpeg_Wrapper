@@ -69,6 +69,7 @@ Bei CTRL+C während der Konvertierung bleiben keine unvollständigen Dateien unt
 
 - **Temp-Datei + Rename**: Jede Ausgabe wird zuerst als `<Name>.part.<ext>` geschrieben (in `_Converted`, bei `mask`/`join`/`cut` im Arbeitsordner) und **erst nach Erfolg** auf den finalen Namen umbenannt.
 - **Fehlerpfad**: Bei ffmpeg-Fehler/Abbruch wird die Teil-Ausgabe **gelöscht**, eine WARNUNG ausgegeben und die **Quelle bleibt stehen** (`WARNING: Conversion failed or cancelled. Source not moved.`). Kein `_Check`-Move mehr.
+- **Exitcode-Auswertung**: Nicht mehr `if errorlevel 1`, sondern `set "RC=!ERRORLEVEL!"` + `if not "!RC!"=="0"` — damit wird **jeder** Code ≠ 0 als Fehler/Abbruch erkannt, auch der CTRL+C-Status `0xC000013A` (als `-1073741510`). Vorher wurde ein Abbruch mit negativem Exitcode übersehen (Teil-Datei wurde dann als final umbenannt).
 - **`_Check` bleibt** ausschließlich für echte **Vorprüf-Fehler** (z. B. Codec nicht erkennbar, Probe fehlgeschlagen) — sowohl in den Convertern (soweit vorhanden) als auch in den Wrappern.
 - **Aufräumen beim Start**: `MAIN` löscht `.part`-Reste (`_Converted\*.part.*`, `*.part.mkv`, `*.part.gif`, `*_mask.part.png`, `*_clip.part.mkv`).
 - **Grenze**: Die „Terminate batch job (Y/N)"-Beendigung von cmd lässt sich nicht abfangen — dann bleibt höchstens ein `.part`-Rest liegen, der beim nächsten Lauf entfernt wird.
