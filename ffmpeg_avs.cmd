@@ -126,7 +126,7 @@ ffmpeg %FF_FLAGS% %DECODER_PARAM% -i "%INPUT_FILE%" -i "!SOURCE_FILE!" -map 0:v 
 set "RC=!ERRORLEVEL!"
 if not "!RC!"=="0" (
     if exist "!OUTPUT_PART!" del /Q "!OUTPUT_PART!" >nul 2>&1
-    echo %ESC%[91mWARNING: Conversion failed or cancelled. Source not moved.%ESC%[0m
+    echo %ESC%[91mWARNING: Encoding failed or cancelled. Source not moved.%ESC%[0m
     goto :EOF
 )
 if not exist "!OUTPUT_PART!" (
@@ -134,6 +134,10 @@ if not exist "!OUTPUT_PART!" (
     goto :EOF
 )
 move /Y "!OUTPUT_PART!" "%OUTPUT_FILE%" >nul
+if not exist "%OUTPUT_FILE%" (
+    echo %ESC%[91mWARNING: Rename failed.%ESC%[0m
+    goto :EOF
+)
 
 set "IDX_SOURCE="
 set "IDX_TARGET="
