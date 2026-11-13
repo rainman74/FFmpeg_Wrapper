@@ -125,6 +125,8 @@ ffmpeg_wrapper <encoder> [audio] [quality] [crop] [filter] [mode] [decoder] [chk
 | `nlmeans` | Non-local Means Denoise (`nlmeans`) |
 | `gauss` | Gaußscher Weichzeichner (`gblur=sigma=1`) |
 | `gauss5` | Starker Gaußscher Weichzeichner (`gblur=sigma=5`) |
+| `median` | Median-Filter klein (`median=radius=1:radiusV=1:planes=7`) |
+| `largemedian` | Median-Filter stark (`median=radius=2:radiusV=2:planes=7`) |
 | `sharp` | Schärfung (`unsharp=1.0`) |
 | `denoise` | Zeitliches Denoising (`atadenoise`) |
 | `denoisehq` | Hochwertiges Denoising (`dctdnoiz` + `atadenoise`) |

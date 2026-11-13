@@ -62,6 +62,7 @@ Batch-Wrapper für `ffmpeg.exe` (NVENC-Hardwareencoding) plus zwei Master-Conver
 - 2026-11-12: `ffmpeg_converter.cmd` → `ffmpeg_audio_converter.cmd` umbenannt (der alte Dateiname existiert nicht mehr; Profile ac3/aac/ac32x/ac51x/eng/ger/copy + `mp3`, `silence`; `dual`/`ac3eng`/`aaceng` entfernt)
 - 2026-11-12: `ffmpeg_video_converter.cmd` neu (srt_extract/srt_burn/srt_merge/strip/gif/lut/mask/cut/join); `funvc.cmd` im bin
 - 2026-11-12: `No files found.` und `[INFO] Savings`-Ausgaben aus Wrapper und Convertern entfernt
+- 2026-11-13: Filter `median` und `largemedian` in `ffmpeg_wrapper.cmd` ergänzt (`median=radius=1:radiusV=1:planes=7` bzw. `radius=2`); README-Tabelle nachgezogen
 
 ## Abbruch-/CTRL+C-Sicherheit (Stand 2026-11-13)
 

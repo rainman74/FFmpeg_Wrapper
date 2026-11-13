@@ -183,6 +183,8 @@ if "%5"=="smooth63"			(set "FILTER=avgblur=sizeX=63:sizeY=63")
 if "%5"=="nlmeans"			(set "FILTER=nlmeans=s=1.5:p=7:r=15")
 if "%5"=="gauss"			(set "FILTER=gblur=sigma=1")
 if "%5"=="gauss5"			(set "FILTER=gblur=sigma=5")
+if "%5"=="median"			(set "FILTER=median=radius=1:radiusV=1:planes=7")
+if "%5"=="largemedian"			(set "FILTER=median=radius=2:radiusV=2:planes=7")
 if "%5"=="sharp"			(set "FILTER=cas=strength=0.5")
 if "%5"=="denoise"			(set "FILTER=atadenoise=0.05:0.05:0.3")
 if "%5"=="denoisehq"		(set "FILTER=dctdnoiz=s=4.5,atadenoise=0.05:0.05:0.3")
@@ -805,7 +807,7 @@ set "TOK_ENCODER=def hevc he10 h264 av1 av10"
 set "TOK_AUDIO=copy copy1 copy2 copy12 copy23 ac3 aac eac3"
 set "TOK_QUALITY=def auto hq uhq lq ulq"
 set "TOK_CROP=none auto 696 768 800 804 808 812 816 872 960 1012 1024 1036 1040 720 720p 720f 1080 1080p 1080f 2160 2160p 2160f 1348 1420 1440 1440f 1480 1500 1764 1780 1788 1792 1800 c1 c2 c3 c4 c5 c6"
-set "TOK_FILTER=none text reverb deblock edgelevel smooth smooth31 smooth63 nlmeans gauss gauss5 sharp denoise denoisehq artifact artifacthq superres superreshq ushrp ushrpdenoise ushrpdenoisehq ushrpartifact ushrpartifacthq log f1 f2 f3 f4 f5 f6"
+set "TOK_FILTER=none text reverb deblock edgelevel smooth smooth31 smooth63 nlmeans gauss gauss5 median largemedian sharp denoise denoisehq artifact artifacthq superres superreshq ushrp ushrpdenoise ushrpdenoisehq ushrpartifact ushrpartifacthq log f1 f2 f3 f4 f5 f6"
 set "TOK_MODE=none deint yadif yadifbob double 23fps 25fps 30fps 60fps 29fps 59fps tweak brighter darker lighter vintage linear HDRtoSDR HDRtoSDRR HDRtoSDRM HDRtoSDRH dv dolby-vision"
 set "TOK_DECODER=def cuda cuvid vp8 vp9 vpx sw mpeg2 auto"
 set "TOK_CHKENC=def true false"
