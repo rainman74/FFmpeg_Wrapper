@@ -123,7 +123,8 @@ for /f "usebackq tokens=1,2 delims=," %%A in (`ffprobe -hide_banner -v error -se
 )
 
 ffmpeg %FF_FLAGS% %DECODER_PARAM% -i "%INPUT_FILE%" -i "!SOURCE_FILE!" -map 0:v !MAP_AUDIO! -map 1:s? -map 1:t? -map_metadata 1 -map_chapters 1 -metadata:s:a:0 language=ger -disposition:a:0 default -disposition:a:1 0 !AUDIO_CODECS! %ENCODER_ARGS% "%OUTPUT_PART%"
-if errorlevel 1 (
+set "RC=!ERRORLEVEL!"
+if not "!RC!"=="0" (
     if exist "!OUTPUT_PART!" del /Q "!OUTPUT_PART!" >nul 2>&1
     echo %ESC%[91mWARNING: Conversion failed or cancelled. Source not moved.%ESC%[0m
     goto :EOF
