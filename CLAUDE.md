@@ -59,20 +59,19 @@ Batch-Wrapper für `ffmpeg.exe` (NVENC-Hardwareencoding) plus zwei Master-Conver
 
 ## Toter Code im `ffmpeg_wrapper.cmd` (Stand 2026-11-25)
 
-Der Wrapper ist aus `nvencc64_wrapper.cmd` (Schwester-Repo `NVEncC64_Wrapper`) abgeleitet. Dort ist die Resize-Logik **lebendig**, weil NVEncC getrennte Optionen für Crop (`--crop`), Zielauflösung (`--output-res`) und Resampler (`--vpp-resize spline36`) hat. Im ffmpeg-Wrapper ist sie **nicht nötig**: `-vf crop=W:H:X:Y` legt die Ausgabeauflösung direkt fest, Skalierung passiert nur über explizite `scale=`-Crop-Profile. Die folgenden Stellen sind deshalb inaktiv, bleiben aber absichtlich im Code (Referenz für ein späteres Aufräumen; Entfernen wäre eine reine Löschung ohne Verhaltensänderung):
+Der Wrapper ist aus `nvencc64_wrapper.cmd` (Schwester-Repo `NVEncC64_Wrapper`) abgeleitet. Dort ist die Resize-Logik **lebendig**, weil NVEncC getrennte Optionen für Crop (`--crop`), Zielauflösung (`--output-res`) und Resampler (`--vpp-resize spline36`) hat. Im ffmpeg-Wrapper ist sie **nicht nötig**: `-vf crop=W:H:X:Y` legt die Ausgabeauflösung direkt fest, Skalierung passiert nur über explizite `zscale`-Crop-Profile. Die folgenden Stellen sind deshalb inaktiv, bleiben aber absichtlich im Code (Referenz für ein späteres Aufräumen; Entfernen wäre eine reine Löschung ohne Verhaltensänderung):
+
+**Bereits entfernt (2026-11-25):** `RESIZE_PARAM`-Zweige (ehem. 416–423), `RESIZE_REQUIRED` (ehem. 267/379/386/391), `FILTER_HAS_RESIZE`/`FILTER_HAS_SCALE_CUDA`/`FILTER_HAS_HWUPLOAD`-Block (ehem. 33–57). Übrig sind nur noch:
 
 | Stelle | Zeilen | Befund |
 |---|---|---|
-| `RESIZE_PARAM` | 416, 417, 421, 422 | wird nur gelesen, nie gesetzt → beide `if defined`-Zweige unerreichbar, `VF_PARAM` läuft immer über die `else`-Pfade (theoretisch über eine geerbte Umgebungsvariable gleichen Namens erreichbar) |
-| `RESIZE_REQUIRED` | 267, 379, 386, 391 | wird gesetzt, aber nie gelesen (auch das `findstr` in 391 ist wirkungslos) |
-| `FILTER_HAS_RESIZE`, `FILTER_HAS_SCALE_CUDA`, `FILTER_HAS_HWUPLOAD` | 33–57 | Flag-Berechnung ohne Wirkung: `SCALE_CUDA`/`HWUPLOAD` werden nie gelesen, `RESIZE` nur intern als Such-Guard |
-| `AUTO_RES_W`, `AUTO_RES_H` | 268–270 | Initialisierung, nie gelesen (Zeilen 268/269 doppelt identisch) |
-| `AUTO_RES` / `TEMP_RES` / `NVEnc_Res` | 675, 712–716; PS-Probe 916/925/949 | Probe liefert das `--output-res`-Analogon, wird aber nicht verwendet; Code 1:1 aus dem NVEncC-Repo übernommen |
-| `FOUND` | 259, 263 | Zähler, nie gelesen |
-| `!CROP!` (Debug) | 388 | `%DBG%`-Zeile nutzt eine nicht existierende Variable; korrekt wäre `CROP_VAL`; nur bei `DEBUG=1` sichtbar |
+| `AUTO_RES_W`, `AUTO_RES_H` | 241–243 | Initialisierung, nie gelesen (Zeilen 241/242 doppelt identisch) |
+| `AUTO_RES` / `TEMP_RES` / `NVEnc_Res` | 636, 674–677; PS-Probe 877/886/910 | Probe liefert das `--output-res`-Analogon, wird aber nicht verwendet; Code 1:1 aus dem NVEncC-Repo übernommen |
+| `FOUND` | 233, 237 | Zähler, nie gelesen |
+| `!CROP!` (Debug) | 359 | `%DBG%`-Zeile nutzt eine nicht existierende Variable; korrekt wäre `CROP_VAL`; nur bei `DEBUG=1` sichtbar |
 
-- **Bewusst offen — Resampler-Parität:** NVEncC erzwingt bei echten Skalierungen `spline36`; die ffmpeg-`scale=`-Profile (`720`/`720p`/`720f`/`1080`/`1080p`/`1080f`/`2160`/`2160p`/`2160f`, Zeilen 145–153) nutzen den swscale-Default `bicubic`. Nächster Hebel wäre `:flags=spline` an genau diesen Profilen (ffmpeg kennt kein `spline36`; „spline" = natural bicubic spline → Annäherung, kein bit-identisches Ergebnis). Die `crop=`-Profile und Auto-Crop sind nicht betroffen (crop skaliert nicht).
-- **Nicht über `RESIZE_PARAM` lösen:** Soll Auto-Crop künftig auch Nicht-1080p-Quellen korrekt unterstützen, müssen die feste Basis `1920/1080` (382–383) und die Probe-Standardwerttabelle dynamisch werden; die Skalierung gehört dann als explizite `scale=`-Stufe in den `VF_CHAIN`.
+- **Erledigt (2026-11-25) — Spline36-Parität:** Die 9 Auflösungs-Profile in `:SETCROP` (Zeilen 119–127) skalieren jetzt mit `zscale=w=…:h=…:filter=spline36` — echtes Spline36 über zimg, Seitenverhältnis über `h=-1`/`w=-2`. `zscale` war im Wrapper bereits für HDR→SDR im Einsatz. Die `crop=`-Profile und Auto-Crop sind unverändert (crop skaliert nicht).
+- **Auto-Crop für Nicht-1080p:** Die feste Basis `1920/1080` (Zeilen 354–355) und die Probe-Standardwerttabelle müssten dynamisch werden; die Skalierung gehörte dann als eigene `zscale`-Stufe in den `VF_CHAIN`.
 
 ## Historie (Auszug)
 
@@ -81,7 +80,8 @@ Der Wrapper ist aus `nvencc64_wrapper.cmd` (Schwester-Repo `NVEncC64_Wrapper`) a
 - 2026-11-12: `No files found.` und `[INFO] Savings`-Ausgaben aus Wrapper und Convertern entfernt
 - 2026-11-13: Filter `median` und `largemedian` in `ffmpeg_wrapper.cmd` ergänzt (`median=radius=1:radiusV=1:planes=7` bzw. `radius=2`); README-Tabelle nachgezogen
 - 2026-11-13: `ffmpeg_avs.cmd` CTRL+C-Handling an `ffmpeg_wrapper` angeglichen (`RC=!ERRORLEVEL!`, Warntext „Encoding failed…", Rename-Check; Commits `87b316e`/`ae41055`)
-- 2026-11-25: Doku-Drift in dieser Datei korrigiert (Warntexte, `_Check`-Scope, Start-Cleanup je Skript, `cube`/`clut`-Ausnahmen) und Abschnitt „Toter Code im `ffmpeg_wrapper.cmd`" ergänzt — Code unverändert
+- 2026-11-25: Doku-Drift in dieser Datei korrigiert (Warntexte, `_Check`-Scope, Start-Cleanup je Skript, `cube`/`clut`-Ausnahmen) und Abschnitt „Toter Code im `ffmpeg_wrapper.cmd`" ergänzt
+- 2026-11-25: Toten Code aus `ffmpeg_wrapper.cmd` entfernt (`RESIZE_PARAM`, `RESIZE_REQUIRED`, `FILTER_HAS_*`); die 9 Auflösungs-Profile in `:SETCROP` von `scale=` auf `zscale=…:filter=spline36` umgestellt (echtes Spline36 via zimg, NVEncC-Parität)
 
 ## Abbruch-/CTRL+C-Sicherheit (Stand 2026-11-13)
 

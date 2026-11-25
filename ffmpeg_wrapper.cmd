@@ -30,32 +30,6 @@ set "REQ_Q=%3"
 set "CROP_PARAM=%4"
 if "!REQ_Q!"=="" set "REQ_Q=def"
 
-set "FILTER_HAS_RESIZE=0"
-set "FILTER_HAS_SCALE_CUDA=0"
-set "FILTER_HAS_HWUPLOAD=0"
-
-if defined FILTER (
-	echo(!FILTER! | findstr /i /c:"scale_cuda" >nul && (
-		set "FILTER_HAS_RESIZE=1"
-		set "FILTER_HAS_SCALE_CUDA=1"
-	)
-	if "!FILTER_HAS_RESIZE!"=="0" (
-		echo(!FILTER! | findstr /i /c:"scale" >nul && set "FILTER_HAS_RESIZE=1"
-	)
-	echo(!FILTER! | findstr /i /c:"hwupload_cuda" >nul && set "FILTER_HAS_HWUPLOAD=1"
-)
-
-if defined MODE (
-	echo(!MODE! | findstr /i /c:"scale_cuda" >nul && (
-		set "FILTER_HAS_RESIZE=1"
-		set "FILTER_HAS_SCALE_CUDA=1"
-	)
-	if "!FILTER_HAS_RESIZE!"=="0" (
-		echo(!MODE! | findstr /i /c:"scale" >nul && set "FILTER_HAS_RESIZE=1"
-	)
-	echo(!MODE! | findstr /i /c:"hwupload_cuda" >nul && set "FILTER_HAS_HWUPLOAD=1"
-)
-
 call :MAIN
 goto :END
 
@@ -142,15 +116,15 @@ if "%4"=="1012"				(set "CROP_VAL=crop=1920:1012:0:34")
 if "%4"=="1024"				(set "CROP_VAL=crop=1920:1024:0:28")
 if "%4"=="1036"				(set "CROP_VAL=crop=1920:1036:0:22")
 if "%4"=="1040"				(set "CROP_VAL=crop=1920:1040:0:20")
-if "%4"=="720"				(set "CROP_VAL=scale=1280:-1")
-if "%4"=="720p"				(set "CROP_VAL=scale=-2:720")
-if "%4"=="720f"				(set "CROP_VAL=scale=1280:720")
-if "%4"=="1080"				(set "CROP_VAL=scale=1920:-1")
-if "%4"=="1080p"			(set "CROP_VAL=scale=-2:1080")
-if "%4"=="1080f"			(set "CROP_VAL=scale=1920:1080")
-if "%4"=="2160"				(set "CROP_VAL=scale=3840:-1")
-if "%4"=="2160p"			(set "CROP_VAL=scale=-2:2160")
-if "%4"=="2160f"			(set "CROP_VAL=scale=3840:2160")
+if "%4"=="720"				(set "CROP_VAL=zscale=w=1280:h=-1:filter=spline36")
+if "%4"=="720p"				(set "CROP_VAL=zscale=w=-2:h=720:filter=spline36")
+if "%4"=="720f"				(set "CROP_VAL=zscale=w=1280:h=720:filter=spline36")
+if "%4"=="1080"				(set "CROP_VAL=zscale=w=1920:h=-1:filter=spline36")
+if "%4"=="1080p"			(set "CROP_VAL=zscale=w=-2:h=1080:filter=spline36")
+if "%4"=="1080f"			(set "CROP_VAL=zscale=w=1920:h=1080:filter=spline36")
+if "%4"=="2160"				(set "CROP_VAL=zscale=w=3840:h=-1:filter=spline36")
+if "%4"=="2160p"			(set "CROP_VAL=zscale=w=-2:h=2160:filter=spline36")
+if "%4"=="2160f"			(set "CROP_VAL=zscale=w=3840:h=2160:filter=spline36")
 if "%4"=="1440"				(set "CROP_VAL=crop=1440:1080:240:0")
 if "%4"=="1440f"			(set "CROP_VAL=crop=1440:1080:0:0")
 if "%4"=="1348"				(set "CROP_VAL=crop=1348:1080:286:0")
@@ -264,7 +238,6 @@ for %%I in (*.avs *.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if exist "%%I" if not
 	set "FILENAME=%%~nI"
 	set "SKIP_FILE="
 	set "TARGET_DIR="
-	set "RESIZE_REQUIRED=0"
 	set "AUTO_RES_W="
 	set "AUTO_RES_W="
 	set "AUTO_RES_H="
@@ -376,19 +349,15 @@ for %%I in (*.avs *.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if exist "%%I" if not
 				if "!AUTO_CROP!"=="0:0:0:0" (
 					%DBG% AUTO-CROP: no crop detected, passthrough
 					set "CROP_VAL=null"
-					set "RESIZE_REQUIRED=0"
 				) else (
 					for /f "tokens=1,2,3,4 delims=:" %%a in ("!AUTO_CROP!") do (
 						set /a "crop_w=1920 - %%a - %%c"
 						set /a "crop_h=1080 - %%b - %%d"
 						set "CROP_VAL=crop=!crop_w!:!crop_h!:%%a:%%b"
 					)
-					set "RESIZE_REQUIRED=1"
 				)
 				%DBG% AUTO-CROP final result: !CROP!
 			)
-		) else if defined CROP_VAL (
-			echo(!CROP_VAL! | findstr /i /c:"crop=" /c:"scale_cuda" >nul && set "RESIZE_REQUIRED=1"
 		)
 
 		set "crop_x=0" & set "crop_y=0"
@@ -412,15 +381,7 @@ for %%I in (*.avs *.mkv *.mp4 *.mpg *.mov *.avi *.webm) do if exist "%%I" if not
 		)
 
 		set "VF_PARAM="
-		if defined VF_CHAIN (
-			if defined RESIZE_PARAM (
-				set "VF_PARAM=-vf !VF_CHAIN!,!RESIZE_PARAM!"
-			) else (
-				set "VF_PARAM=-vf !VF_CHAIN!"
-			)
-		) else if defined RESIZE_PARAM (
-			set "VF_PARAM=-vf !RESIZE_PARAM!"
-		)
+		if defined VF_CHAIN set "VF_PARAM=-vf !VF_CHAIN!"
 
 		setlocal DisableDelayedExpansion
 		powershell -command "write-output ('file:///' + (get-item '%%~dpI').FullName.Replace('\', '/') -replace [char]34, [char]7 -replace ' ', '%%20' -replace '#', '%%23' -replace [char]39, '%%27' -replace '!', '%%21' -replace '\(', '%%28' -replace '\)', '%%29')"
