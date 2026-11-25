@@ -132,6 +132,7 @@ if "%4"=="1420"				(set "CROP_VAL=crop=1420:1080:250:0")
 if "%4"=="1480"				(set "CROP_VAL=crop=1480:1080:220:0")
 if "%4"=="1500"				(set "CROP_VAL=crop=1500:1080:210:0")
 if "%4"=="1764"				(set "CROP_VAL=crop=1764:1080:78:0")
+if "%4"=="1772"				(set "CROP_VAL=crop=1772:1080:74:0")
 if "%4"=="1780"				(set "CROP_VAL=crop=1780:1080:70:0")
 if "%4"=="1788"				(set "CROP_VAL=crop=1788:1080:66:0")
 if "%4"=="1792"				(set "CROP_VAL=crop=1792:1080:64:0")
@@ -767,7 +768,7 @@ exit /b
 set "TOK_ENCODER=def hevc he10 h264 av1 av10"
 set "TOK_AUDIO=copy copy1 copy2 copy12 copy23 ac3 aac eac3"
 set "TOK_QUALITY=def auto hq uhq lq ulq"
-set "TOK_CROP=none auto 696 768 800 804 808 812 816 872 960 1012 1024 1036 1040 720 720p 720f 1080 1080p 1080f 2160 2160p 2160f 1348 1420 1440 1440f 1480 1500 1764 1780 1788 1792 1800 c1 c2 c3 c4 c5 c6"
+set "TOK_CROP=none auto 696 768 800 804 808 812 816 872 960 1012 1024 1036 1040 720 720p 720f 1080 1080p 1080f 2160 2160p 2160f 1348 1420 1440 1440f 1480 1500 1764 1772 1780 1788 1792 1800 c1 c2 c3 c4 c5 c6"
 set "TOK_FILTER=none text reverb deblock edgelevel smooth smooth31 smooth63 nlmeans gauss gauss5 median largemedian sharp denoise denoisehq artifact artifacthq superres superreshq ushrp ushrpdenoise ushrpdenoisehq ushrpartifact ushrpartifacthq log f1 f2 f3 f4 f5 f6"
 set "TOK_MODE=none deint yadif yadifbob double 23fps 25fps 30fps 60fps 29fps 59fps tweak brighter darker lighter vintage linear HDRtoSDR HDRtoSDRR HDRtoSDRM HDRtoSDRH dv dolby-vision"
 set "TOK_DECODER=def cuda cuvid vp8 vp9 vpx sw mpeg2 auto"
@@ -832,7 +833,7 @@ $StandardResolutions = @{
 	 40 = @{ Crop="0:20:0:20";	 Res="1920x1040" }
 	  0 = @{ Crop="0:0:0:0";	 Res="1920x1080" }
 }
-$StandardWidths = @(1800,1792,1788,1780,1764,1500,1480,1440,1420,1348)
+$StandardWidths = @(1800,1792,1788,1780,1772,1764,1500,1480,1440,1420,1348)
 $ffmpegCmd = (get-command ffmpeg.exe).source
 $ffprobeCmd = (get-command ffprobe.exe).source
 $ProbeTimes = @("00:02:00","00:10:00","00:20:00")

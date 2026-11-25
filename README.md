@@ -107,7 +107,7 @@ ffmpeg_wrapper <encoder> [audio] [quality] [crop] [filter] [mode] [decoder] [chk
 | `2160f` | 3840x2160 (fest) |
 
 **Letterbox-Standards (1920x1080 Basis mit horizontalem Crop):**
-`1440`, `1440f`, `1348`, `1420`, `1480`, `1500`, `1764`, `1780`, `1788`, `1792`, `1800`
+`1440`, `1440f`, `1348`, `1420`, `1480`, `1500`, `1764`, `1772`, `1780`, `1788`, `1792`, `1800`
 
 **Aliase (alle = kein Crop):** `c1`, `c2`, `c3`, `c4`, `c5`, `c6`
 

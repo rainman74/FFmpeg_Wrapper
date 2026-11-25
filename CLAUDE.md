@@ -82,6 +82,7 @@ Der Wrapper ist aus `nvencc64_wrapper.cmd` (Schwester-Repo `NVEncC64_Wrapper`) a
 - 2026-11-13: `ffmpeg_avs.cmd` CTRL+C-Handling an `ffmpeg_wrapper` angeglichen (`RC=!ERRORLEVEL!`, Warntext „Encoding failed…", Rename-Check; Commits `87b316e`/`ae41055`)
 - 2026-11-25: Doku-Drift in dieser Datei korrigiert (Warntexte, `_Check`-Scope, Start-Cleanup je Skript, `cube`/`clut`-Ausnahmen) und Abschnitt „Toter Code im `ffmpeg_wrapper.cmd`" ergänzt
 - 2026-11-25: Toten Code aus `ffmpeg_wrapper.cmd` entfernt (`RESIZE_PARAM`, `RESIZE_REQUIRED`, `FILTER_HAS_*`); die 9 Auflösungs-Profile in `:SETCROP` von `scale=` auf `zscale=…:filter=spline36` umgestellt (echtes Spline36 via zimg, NVEncC-Parität)
+- 2026-11-25: Horizontale Auto-Erkennung um Standardbreite `1772` ergänzt (`$StandardWidths` im Probe) und Crop-Profil `1772` (`crop=1772:1080:74:0`) inkl. Token/README aufgenommen
 
 ## Abbruch-/CTRL+C-Sicherheit (Stand 2026-11-13)
 
