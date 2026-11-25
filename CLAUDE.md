@@ -19,7 +19,7 @@ Batch-Wrapper für `ffmpeg.exe` (NVENC-Hardwareencoding) plus zwei Master-Conver
 - Aufbau: `:INIT` (Flags, Bitraten, Filter, `INPUT_GLOBS`) → `:SETPROFILE` → `:MAIN` → `RUN_*`-Helfer → `:VALIDATE-PARAMS` → `:USAGE` → `:END`
 - **Keine REM-Zeilen** in den Converter-Skripten; Echos nur für Fortschritt/`WARNING`/`ERROR`/`SKIP`
 - `setlocal enabledelayedexpansion`, Tabs als Einrückung, CRLF, ASCII
-- Ausgabe immer `_Converted\<Name>.<ext>` (Ausnahme: `mask`, `cut`, `join` im aktuellen Ordner); vorhandene Ausgaben werden übersprungen; Fehler → Datei nach `_Check\`
+- Ausgabe immer `_Converted\<Name>.<ext>` (Ausnahme: `mask`, `cut`, `join` im aktuellen Ordner); vorhandene Ausgaben werden übersprungen; Konvertierungsfehler lassen die Quelle stehen (Teil-Ausgabe gelöscht, kein `_Check`-Move) — `_Check\` nur im `ffmpeg_wrapper` für Vorprüf-/Nachbearbeitungsfehler (siehe Abschnitt „Abbruch-/CTRL+C-Sicherheit")
 - **Bei „nichts zu tun" wird keine Meldung ausgegeben** (kein `No files found.`, keine `[INFO] Savings`-Zeile — beides am 2026-11-12 entfernt)
 - `USAGE`/Fehlermeldungen über `:PRINT_TOK` + `CALLER_NAME` (bei Aufruf über `funac`/`funvc` erscheint der Wrapper-Name)
 - Zweiter Parameter: nur wo sinnvoll (`select`, LUT-Datei); sonst ERROR „takes no second parameter"
@@ -57,28 +57,47 @@ Batch-Wrapper für `ffmpeg.exe` (NVENC-Hardwareencoding) plus zwei Master-Conver
 - `-map_metadata -1` entfernt auch Stream-Tags (Sprach-/Titel-Tags) — beim `strip` gewollt, sonst nicht verwenden
 - ffmpeg-Mappings: Audio-Codec-Argumente immer pro Stream (`-c:a:N`), sonst „Multiple -codec options specified"
 
+## Toter Code im `ffmpeg_wrapper.cmd` (Stand 2026-11-25)
+
+Der Wrapper ist aus `nvencc64_wrapper.cmd` (Schwester-Repo `NVEncC64_Wrapper`) abgeleitet. Dort ist die Resize-Logik **lebendig**, weil NVEncC getrennte Optionen für Crop (`--crop`), Zielauflösung (`--output-res`) und Resampler (`--vpp-resize spline36`) hat. Im ffmpeg-Wrapper ist sie **nicht nötig**: `-vf crop=W:H:X:Y` legt die Ausgabeauflösung direkt fest, Skalierung passiert nur über explizite `scale=`-Crop-Profile. Die folgenden Stellen sind deshalb inaktiv, bleiben aber absichtlich im Code (Referenz für ein späteres Aufräumen; Entfernen wäre eine reine Löschung ohne Verhaltensänderung):
+
+| Stelle | Zeilen | Befund |
+|---|---|---|
+| `RESIZE_PARAM` | 416, 417, 421, 422 | wird nur gelesen, nie gesetzt → beide `if defined`-Zweige unerreichbar, `VF_PARAM` läuft immer über die `else`-Pfade (theoretisch über eine geerbte Umgebungsvariable gleichen Namens erreichbar) |
+| `RESIZE_REQUIRED` | 267, 379, 386, 391 | wird gesetzt, aber nie gelesen (auch das `findstr` in 391 ist wirkungslos) |
+| `FILTER_HAS_RESIZE`, `FILTER_HAS_SCALE_CUDA`, `FILTER_HAS_HWUPLOAD` | 33–57 | Flag-Berechnung ohne Wirkung: `SCALE_CUDA`/`HWUPLOAD` werden nie gelesen, `RESIZE` nur intern als Such-Guard |
+| `AUTO_RES_W`, `AUTO_RES_H` | 268–270 | Initialisierung, nie gelesen (Zeilen 268/269 doppelt identisch) |
+| `AUTO_RES` / `TEMP_RES` / `NVEnc_Res` | 675, 712–716; PS-Probe 916/925/949 | Probe liefert das `--output-res`-Analogon, wird aber nicht verwendet; Code 1:1 aus dem NVEncC-Repo übernommen |
+| `FOUND` | 259, 263 | Zähler, nie gelesen |
+| `!CROP!` (Debug) | 388 | `%DBG%`-Zeile nutzt eine nicht existierende Variable; korrekt wäre `CROP_VAL`; nur bei `DEBUG=1` sichtbar |
+
+- **Bewusst offen — Resampler-Parität:** NVEncC erzwingt bei echten Skalierungen `spline36`; die ffmpeg-`scale=`-Profile (`720`/`720p`/`720f`/`1080`/`1080p`/`1080f`/`2160`/`2160p`/`2160f`, Zeilen 145–153) nutzen den swscale-Default `bicubic`. Nächster Hebel wäre `:flags=spline` an genau diesen Profilen (ffmpeg kennt kein `spline36`; „spline" = natural bicubic spline → Annäherung, kein bit-identisches Ergebnis). Die `crop=`-Profile und Auto-Crop sind nicht betroffen (crop skaliert nicht).
+- **Nicht über `RESIZE_PARAM` lösen:** Soll Auto-Crop künftig auch Nicht-1080p-Quellen korrekt unterstützen, müssen die feste Basis `1920/1080` (382–383) und die Probe-Standardwerttabelle dynamisch werden; die Skalierung gehört dann als explizite `scale=`-Stufe in den `VF_CHAIN`.
+
 ## Historie (Auszug)
 
 - 2026-11-12: `ffmpeg_converter.cmd` → `ffmpeg_audio_converter.cmd` umbenannt (der alte Dateiname existiert nicht mehr; Profile ac3/aac/ac32x/ac51x/eng/ger/copy + `mp3`, `silence`; `dual`/`ac3eng`/`aaceng` entfernt)
 - 2026-11-12: `ffmpeg_video_converter.cmd` neu (srt_extract/srt_burn/srt_merge/strip/gif/lut/mask/cut/join); `funvc.cmd` im bin
 - 2026-11-12: `No files found.` und `[INFO] Savings`-Ausgaben aus Wrapper und Convertern entfernt
 - 2026-11-13: Filter `median` und `largemedian` in `ffmpeg_wrapper.cmd` ergänzt (`median=radius=1:radiusV=1:planes=7` bzw. `radius=2`); README-Tabelle nachgezogen
+- 2026-11-13: `ffmpeg_avs.cmd` CTRL+C-Handling an `ffmpeg_wrapper` angeglichen (`RC=!ERRORLEVEL!`, Warntext „Encoding failed…", Rename-Check; Commits `87b316e`/`ae41055`)
+- 2026-11-25: Doku-Drift in dieser Datei korrigiert (Warntexte, `_Check`-Scope, Start-Cleanup je Skript, `cube`/`clut`-Ausnahmen) und Abschnitt „Toter Code im `ffmpeg_wrapper.cmd`" ergänzt — Code unverändert
 
 ## Abbruch-/CTRL+C-Sicherheit (Stand 2026-11-13)
 
 Bei CTRL+C während der Konvertierung bleiben keine unvollständigen Dateien unter dem finalen Namen liegen und die Quelle wird nicht mehr nach `_Check` verschoben:
 
 - **Temp-Datei + Rename**: Jede Ausgabe wird zuerst als `<Name>.part.<ext>` geschrieben (in `_Converted`, bei `mask`/`join`/`cut` im Arbeitsordner) und **erst nach Erfolg** auf den finalen Namen umbenannt.
-- **Fehlerpfad**: Bei ffmpeg-Fehler/Abbruch wird die Teil-Ausgabe **gelöscht**, eine WARNUNG ausgegeben und die **Quelle bleibt stehen** (`WARNING: Conversion failed or cancelled. Source not moved.`). Kein `_Check`-Move mehr.
-- **Exitcode-Auswertung**: Nicht mehr `if errorlevel 1`, sondern `set "RC=!ERRORLEVEL!"` + `if not "!RC!"=="0"` — damit wird **jeder** Code ≠ 0 als Fehler/Abbruch erkannt, auch der CTRL+C-Status `0xC000013A` (als `-1073741510`). Vorher wurde ein Abbruch mit negativem Exitcode übersehen (Teil-Datei wurde dann als final umbenannt).
-- **`_Check` bleibt** ausschließlich für echte **Vorprüf-Fehler** (z. B. Codec nicht erkennbar, Probe fehlgeschlagen) — sowohl in den Convertern (soweit vorhanden) als auch in den Wrappern.
-- **Aufräumen beim Start**: `MAIN` löscht `.part`-Reste (`_Converted\*.part.*`, `*.part.mkv`, `*.part.gif`, `*_mask.part.png`, `*_clip.part.mkv`).
+- **Fehlerpfad**: Bei ffmpeg-Fehler/Abbruch wird die Teil-Ausgabe **gelöscht**, eine WARNUNG ausgegeben und die **Quelle bleibt stehen**. Warntext je Skript: `ffmpeg_wrapper`/`ffmpeg_avs` → `WARNING: Encoding failed or cancelled. Source not moved.`; `ffmpeg_audio_converter`/`ffmpeg_video_converter` → `WARNING: Conversion failed or cancelled. Source not moved.` (bei `join`/`cut` → `Join failed or cancelled`/`Cut failed or cancelled`). Kein `_Check`-Move mehr.
+- **Exitcode-Auswertung**: Nicht mehr `if errorlevel 1`, sondern `set "RC=!ERRORLEVEL!"` + `if not "!RC!"=="0"` — damit wird **jeder** Code ≠ 0 als Fehler/Abbruch erkannt, auch der CTRL+C-Status `0xC000013A` (als `-1073741510`). Vorher wurde ein Abbruch mit negativem Exitcode übersehen (Teil-Datei wurde dann als final umbenannt). Umgestellt: `ffmpeg_wrapper`, `ffmpeg_audio_converter`, `ffmpeg_video_converter` (Commit `9aea16d`) und `ffmpeg_avs` (Commit `ae41055`, 2026-11-13); `bin\cube.cmd` nutzt weiter `if errorlevel 1`, `bin\clut.cmd` prüft nur die Existenz der Teil-Datei — dort also keine CTRL+C-Erkennung.
+- **`_Check`-Verwendung** (nur `ffmpeg_wrapper`; die drei Converter nutzen kein `_Check`): Vorprüf-Fehler — Codec nicht erkannt (Zeilen 286–288), Probe fehlgeschlagen (369–372) — sowie Nachbearbeitungs-/Remux-Fehler: EDIT_TAGS-PowerShell- oder mkvpropedit-Fehler (Ausgabe → `_Check`, 535–543, 568–569) und defekter Re-Mux mit 0 Streams (Quelle → `_Check`, 610–613).
+- **Aufräumen beim Start** (je Skript in `MAIN`): `ffmpeg_wrapper`/`ffmpeg_avs` → `_Converted\*.part.mkv`; `ffmpeg_audio_converter` → `_Converted\*.part.*`; `ffmpeg_video_converter` → `_Converted\*.part.*`, `*.part.mkv`, `*.part.gif`, `*_mask.part.png`, `*_clip.part.mkv` (läuft **nicht** bei `cut`/`join` — `MAIN` springt vorher zu `RUN_CUT`/`RUN_JOIN`); `bin\cube.cmd` → `*.part.cube`, `*_512.part.png`; `bin\clut.cmd` → `*_haldclut*.part.png`.
 - **Grenze**: Die „Terminate batch job (Y/N)"-Beendigung von cmd lässt sich nicht abfangen — dann bleibt höchstens ein `.part`-Rest liegen, der beim nächsten Lauf entfernt wird.
-- **Betroffen**: `ffmpeg_audio_converter` (normal/`mp3`/`silence`), `ffmpeg_video_converter` (burn/gif/lut/mask/extract/srt_merge/strip/cut/join), `ffmpeg_wrapper` (Encode + mkvmmerge-Re-Mux im Check-Encoded-Block), `ffmpeg_avs`; im NVEncC-Repo analog `nvencc64_wrapper`; dazu `bin\cube.cmd` und `bin\clut.cmd`.
+- **Betroffen**: `ffmpeg_audio_converter` (normal/`mp3`/`silence`), `ffmpeg_video_converter` (burn/gif/lut/mask/extract/srt_merge/strip/cut/join), `ffmpeg_wrapper` (Encode + mkvmmerge-Re-Mux im Check-Encoded-Block), `ffmpeg_avs`; im NVEncC-Repo analog `nvencc64_wrapper`; dazu `bin\cube.cmd` und `bin\clut.cmd` (Part-Handling ja, aber ohne `RC=!ERRORLEVEL!`-Auswertung).
 
 ## Rollback: Version ohne Part-Handling
 
-- **Part-Handling eingeführt**: Commit **`b511ade`** (Temp-Datei `.part.*` + Rename, Fehlerpfad ohne `_Check`-Move); danach **`9aea16d`** (Exitcode-Auswertung `RC=!ERRORLEVEL!` inkl. CTRL+C-Status `0xC000013A`).
+- **Part-Handling eingeführt**: Commit **`b511ade`** (Temp-Datei `.part.*` + Rename, Fehlerpfad ohne `_Check`-Move); danach **`9aea16d`** (Exitcode-Auswertung `RC=!ERRORLEVEL!` inkl. CTRL+C-Status `0xC000013A`; damals nur `ffmpeg_wrapper`/`ffmpeg_audio_converter`/`ffmpeg_video_converter` — `ffmpeg_avs` folgte mit `87b316e`/`ae41055` am 2026-11-13).
 - **Letzter Stand OHNE Part-Handling: Commit `803938d`** (davor: `21364cf`/`362410c` = nur CLAUDE.md-Doku).
 - **Rollback der Skripte**:
   ```
