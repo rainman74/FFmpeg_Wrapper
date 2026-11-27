@@ -63,10 +63,10 @@ Stand `ffmpeg_wrapper.cmd`: **1108 Zeilen**. Bei `CHECK_ENCODED=1` (Parameter 8 
 
 - **Fall A — `copy`/`copy1`/`copy2`/`copy12`/`copy23`:** `AUDIO_MODE=copy` → unverändertes Verschieben/Muxen nach `_Converted`, `SKIP_FILE=1`; Track-Filter werden bei bereits encodiertem Video ignoriert.
 - **Fall B — `ac3`/`aac`/`eac3` (leer = ac3):** keine Audiospuren **oder** alle Spuren konform → bisheriges Verschieben (`TARGET_DIR`). Mindestens eine Spur abweichend → `TARGET_DIR` bleibt leer, `AUDIO_ONLY_FFMPEG=1` (Entscheidungsmatrix Z. 329–343).
-- **Stream-Regeln:** nur abweichende Spuren werden neu encodet, konforme bleiben `-c:a:<idx> copy` (auch bei abweichender Bitrate). `ac3`: ≤2ch 192k / >2ch 384k (`-ac:a:<idx> 6`, 7.1→5.1); `aac`: 128k/256k; `eac3`: 320k/640k. Ein `aacs`-Token existiert in diesem Wrapper nicht (`TOK_AUDIO` unverändert).
-- **FFmpeg-Aufruf (Z. 379–408):** `-map 0:v -map 0:a? -map 0:s? -map 0:t? -map_chapters 0 -c:v copy -c:s copy -c:t copy <FF_AUDIO_ARGS>` → `_Converted\<Name>.part.mkv`; danach Rename, `EDIT_TAGS`, `REMUX_IF_NEEDED`, 5-s-Countdown. Quelle bleibt unangetastet; bei Fehler `.part.mkv` löschen + `WARNING: FFmpeg audio re-encoding failed or cancelled. Source not moved.` und `exit /b`.
+- **Stream-Regeln:** nur abweichende Spuren werden neu encodiert, konforme bleiben `-c:a:<idx> copy` (auch bei abweichender Bitrate). `ac3`: ≤2ch 192k / >2ch 384k (`-ac:a:<idx> 6`, 7.1→5.1); `aac`: 128k/256k; `eac3`: 320k/640k. Ein `aacs`-Token existiert in diesem Wrapper nicht (`TOK_AUDIO` unverändert).
+- **FFmpeg-Aufruf (Z. 379–408):** `-map 0:v -map 0:a? -map 0:s? -map 0:t? -map_chapters 0 -c:v copy -c:s copy -c:t copy <FF_AUDIO_ARGS>` → `_Converted\<Name>.part.mkv`; danach Rename, `EDIT_TAGS`, `REMUX_IF_NEEDED`, 5-s-Countdown. Quelle bleibt unangetastet; bei Fehler `.part.mkv` löschen + `WARNING: FFmpeg audio re-encoding failed or cancelled. Source not moved.` und `exit /b`. `FF_AUDIO_INFO` wird nach der Schleife um das abschließende `"; "` bereinigt (`!FF_AUDIO_INFO:~0,-2!`).
 - **VIDEO_MATCH:** `hevc`/`he10` → `ENCODER=hevc_nvenc` → HEVC; `h264` → `h264_nvenc` → AVC; `av1`/`av10` → `av1_nvenc` → AV1.
-- **Grenze:** `mediainfo --Inform=Video;%Format%` liefert bei mehreren Videospuren verketteten Text (z. B. `HEVCHEVC`) → kein Video-Match → normaler Encode-Pfad.
+- **Grenze:** `mediainfo --Inform=Video;%Format%` liefert bei mehreren Videospuren verketteten Text (z. B. `HEVCHEVC`) → kein Video-Match → normaler Encode-Pfad. Bewusst so: mehrdeutige Video-Lagen werden nicht automatisch verarbeitet.
 
 **Tests (2026-11-27, real):** gemischt (`ac3` 2ch copy + `aac` 6ch → `ac3` 6ch 384k), alle konform → Verschieben, `copy`/`copy1` → Verschieben, ohne Audio → Verschieben, `aac`-/`eac3`-Ziel, `he10`-Ziel, `av1`/`av10`-Ziel (libsvtav1-Quelle) → Audio-Pfad mit Video-Copy; **Video-MD5 identisch**, Quelle bleibt, Untertitel + Font-Attachment erhalten, MP4-Quelle → MKV-Ausgabe, `CHECK_ENCODED=false` → normaler Encode-Pfad unverändert. Token-Tabellen und bestehende Routinen unverändert.
 
@@ -96,7 +96,7 @@ Der Wrapper ist aus `nvencc64_wrapper.cmd` (Schwester-Repo `NVEncC64_Wrapper`) a
 - 2026-11-25: Doku-Drift in dieser Datei korrigiert (Warntexte, `_Check`-Scope, Start-Cleanup je Skript, `cube`/`clut`-Ausnahmen) und Abschnitt „Toter Code im `ffmpeg_wrapper.cmd`" ergänzt
 - 2026-11-25: Toten Code aus `ffmpeg_wrapper.cmd` entfernt (`RESIZE_PARAM`, `RESIZE_REQUIRED`, `FILTER_HAS_*`); die 9 Auflösungs-Profile in `:SETCROP` von `scale=` auf `zscale=…:filter=spline36` umgestellt (echtes Spline36 via zimg, NVEncC-Parität)
 - 2026-11-25: Horizontale Auto-Erkennung um Standardbreite `1772` ergänzt (`$StandardWidths` im Probe) und Crop-Profil `1772` (`crop=1772:1080:74:0`) inkl. Token/README aufgenommen
-- 2026-11-27: Zweistufige Codec-/Stream-Prüfung im `ffmpeg_wrapper`: bei `CHECK_ENCODED=1` werden Audiospuren geprüft (`:SETAUDIO` mit `AUDIO_MODE`, neue Routine `:CHECK_AUDIO_STREAMS`, Entscheidungsmatrix in `:MAIN`); abweichende Spuren werden per FFmpeg-Audio-Reencode (Video `copy`, Quelle bleibt erhalten) neu encodet, konforme Spuren/`copy`-Fälle verschieben wie bisher
+- 2026-11-27: Zweistufige Codec-/Stream-Prüfung im `ffmpeg_wrapper`: bei `CHECK_ENCODED=1` werden Audiospuren geprüft (`:SETAUDIO` mit `AUDIO_MODE`, neue Routine `:CHECK_AUDIO_STREAMS`, Entscheidungsmatrix in `:MAIN`); abweichende Spuren werden per FFmpeg-Audio-Reencode (Video `copy`, Quelle bleibt erhalten) neu encodiert, konforme Spuren/`copy`-Fälle verschieben wie bisher
 
 ## Abbruch-/CTRL+C-Sicherheit (Stand 2026-11-13)
 
