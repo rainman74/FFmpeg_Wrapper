@@ -6,7 +6,7 @@ Batch-Videotranscoding-Wrapper für FFmpeg mit NVENC-Hardwareencoding, automatis
 
 - **Auto-Crop** — Ermittelt schwarze Balken per `ffmpeg cropdetect` an 3 Zeitpunkten und mapped auf Standard-16:9-Resolutionen
 - **Auto-Quality** — Wählt Qualitätsstufe anhand des Jahrzehnts im Dateinamen (`(19xx)` = hq, `(20xx)` = def)
-- **Auto-Skip** — Bereits im Zielcodec vorliegende Dateien werden ohne Neukodierung verschoben
+- **Auto-Skip** — Bereits im Zielcodec vorliegende Dateien werden ohne Neukodierung verschoben; abweichende Audiospuren werden vorher per FFmpeg neu encodet (Video bleibt `copy`)
 - **Audio-Encoding** — AC3, AAC, E-AC3 oder direkte Kopie (auch selektive Streams); dynamische Erkennung pro Stream
 - **Videofilter** — Denoise, Sharpening, Upscaling, Deinterlacing, HDR→SDR u.v.m.
 - **AviSynth** — `*.avs`-Skripte werden ohne Codec-Erkennung direkt von FFmpeg eingelesen (ohne HW-Beschleunigung)
@@ -186,7 +186,7 @@ ffmpeg_wrapper <encoder> [audio] [quality] [crop] [filter] [mode] [decoder] [chk
 #### chkenc (Position 8)
 | Wert | Verhalten |
 |------|-----------|
-| `def` / `true` (default) | Prüft, ob Quelle bereits im Zielcodec vorliegt → überspringt Neukodierung |
+| `def` / `true` (default) | Prüft, ob Quelle bereits im Zielcodec vorliegt → überspringt Neukodierung; weichen Audiospuren ab, werden nur diese per FFmpeg neu encodet (Video-Copy) |
 | `false` | Immer neu kodieren |
 
 ## Auto-Crop im Detail
@@ -235,6 +235,17 @@ Aktiviert detaillierte Ausgabe der Crop-Erkennung, FFmpeg-Parameter und Zwischen
 - **Asymmetrische schwarze Balken** → Datei wird nach `_Check/` verschoben
 - **Quelle zu klein** (< 1280×696) → Datei wird nach `_Check/` verschoben
 - **Tag-Edit fehlgeschlagen** → Datei wird nach `_Check/` verschoben
+- **Audio-Reencode fehlgeschlagen** → Teil-Ausgabe (`.part.mkv`) wird gelöscht, die Quelle bleibt unverändert
+
+## Audio-Reencode bei bereits kodiertem Video
+
+Liegt der Videostream bereits im Zielcodec vor (`CHECK_ENCODED=1`), prüft der Wrapper zusätzlich die Audiospuren (`:CHECK_AUDIO_STREAMS`):
+
+- **`copy`/`copy1`/`copy2`/`copy12`/`copy23`** (kein Ziel-Audio-Codec): unverändertes Verschieben nach `_Converted`, Track-Filter werden ignoriert.
+- **`ac3`/`aac`/`eac3`** (oder leer): Sind alle Audiospuren bereits konform (bzw. enthält die Datei kein Audio), wird wie bisher verschoben. Weicht mindestens eine Spur ab, bleibt die Quelldatei **unangetastet**; `ffmpeg` erzeugt die Ausgabe mit `-c:v copy`:
+  - konforme Spuren: `-c:a:<idx> copy` (auch bei abweichender Bitrate)
+  - abweichende Spuren: AC3 (2ch 192k, >2ch 384k inkl. 5.1-Downmix), AAC (128k/256k), E-AC3 (320k/640k)
+- Untertitel, Kapitel und Anhänge (Fonts) werden übernommen; nach Erfolg laufen `EDIT_TAGS`, `REMUX_IF_NEEDED` und der 5-Sekunden-Countdown wie beim regulären Encode.
 
 ## Beispiele
 
